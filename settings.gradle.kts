@@ -19,5 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "MidiMapper"
+rootProject.name = "MIDI Mapper"
 include(":app")
