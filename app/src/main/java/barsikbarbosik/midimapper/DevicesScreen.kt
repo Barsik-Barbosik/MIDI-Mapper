@@ -41,33 +41,44 @@ fun DevicesScreen(
     var selectedSource by remember { mutableStateOf<MidiDeviceInfo?>(null) }
     var selectedTarget by remember { mutableStateOf<MidiDeviceInfo?>(null) }
 
+    val isConnected = connectionStatus.startsWith("Connected")
+
     Column(
         modifier = modifier
             .fillMaxSize()
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Text("MIDI Mapper", style = MaterialTheme.typography.titleLarge)
+
         Text("Select Source and Target MIDI Devices", style = MaterialTheme.typography.titleMedium)
 
-        // Source dropdown
+        /* ---------------- Source Dropdown ---------------- */
         ExposedDropdownMenuBox(
-            expanded = expandedSource,
-            onExpandedChange = { expandedSource = !expandedSource }) {
+            expanded = expandedSource && !isConnected,
+            onExpandedChange = {
+                if (!isConnected) expandedSource = !expandedSource
+            }
+        ) {
             TextField(
                 value = selectedSource?.properties?.getString(MidiDeviceInfo.PROPERTY_NAME)
                     ?: "Select source",
                 onValueChange = {},
                 readOnly = true,
+                enabled = !isConnected,   // ✅ disable when connected
                 label = { Text("Source") },
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expandedSource) },
+                trailingIcon = {
+                    ExposedDropdownMenuDefaults.TrailingIcon(
+                        expanded = expandedSource && !isConnected
+                    )
+                },
                 modifier = Modifier
                     .menuAnchor()
                     .fillMaxWidth()
             )
             ExposedDropdownMenu(
-                expanded = expandedSource,
-                onDismissRequest = { expandedSource = false }) {
+                expanded = expandedSource && !isConnected,
+                onDismissRequest = { expandedSource = false }
+            ) {
                 devices.forEach { device ->
                     DropdownMenuItem(
                         text = {
@@ -85,24 +96,33 @@ fun DevicesScreen(
             }
         }
 
-        // Target dropdown
+        /* ---------------- Target Dropdown ---------------- */
         ExposedDropdownMenuBox(
-            expanded = expandedTarget,
-            onExpandedChange = { expandedTarget = !expandedTarget }) {
+            expanded = expandedTarget && !isConnected,
+            onExpandedChange = {
+                if (!isConnected) expandedTarget = !expandedTarget
+            }
+        ) {
             TextField(
                 value = selectedTarget?.properties?.getString(MidiDeviceInfo.PROPERTY_NAME)
                     ?: "Select target",
                 onValueChange = {},
                 readOnly = true,
+                enabled = !isConnected,   // ✅ disable when connected
                 label = { Text("Target") },
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expandedTarget) },
+                trailingIcon = {
+                    ExposedDropdownMenuDefaults.TrailingIcon(
+                        expanded = expandedTarget && !isConnected
+                    )
+                },
                 modifier = Modifier
                     .menuAnchor()
                     .fillMaxWidth()
             )
             ExposedDropdownMenu(
-                expanded = expandedTarget,
-                onDismissRequest = { expandedTarget = false }) {
+                expanded = expandedTarget && !isConnected,
+                onDismissRequest = { expandedTarget = false }
+            ) {
                 devices.forEach { device ->
                     DropdownMenuItem(
                         text = {
@@ -120,27 +140,29 @@ fun DevicesScreen(
             }
         }
 
+        /* ---------------- Connect Button ---------------- */
         Button(
             onClick = {
                 if (selectedSource != null && selectedTarget != null) {
                     onConnect(selectedSource!!, selectedTarget!!)
                 }
             },
-            enabled = selectedSource != null && selectedTarget != null,
+            enabled = selectedSource != null && selectedTarget != null && !isConnected,
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("Connect")
         }
 
-        // --- Status indicator + Disconnect ---
         Divider()
+
+        /* ---------------- Status Text ---------------- */
         Text(
             text = connectionStatus,
-            color = if (connectionStatus.startsWith("Connected")) Color(0xFF2E7D32) else Color(
-                0xFFC62828
-            )
+            color = if (isConnected) Color(0xFF2E7D32) else Color(0xFFC62828)
         )
-        if (connectionStatus.startsWith("Connected")) {
+
+        /* ---------------- Disconnect Button ---------------- */
+        if (isConnected) {
             Button(
                 onClick = onDisconnect,
                 modifier = Modifier.fillMaxWidth(),
