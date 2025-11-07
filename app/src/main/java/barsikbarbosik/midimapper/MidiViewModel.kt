@@ -6,6 +6,7 @@ import android.media.midi.MidiDeviceInfo
 import android.media.midi.MidiInputPort
 import android.media.midi.MidiManager
 import android.media.midi.MidiOutputPort
+import android.media.midi.MidiReceiver
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -59,7 +60,17 @@ class MidiViewModel(context: Context) : ViewModel() {
                             val outPort = src.openOutputPort(0)
                             val inPort = tgt.openInputPort(0)
                             if (outPort != null && inPort != null) {
-                                outPort.connect(inPort)
+                                val framer = MidiFramer(object : MidiReceiver() {
+                                    override fun onSend(
+                                        data: ByteArray,
+                                        offset: Int,
+                                        count: Int,
+                                        timestamp: Long
+                                    ) {
+                                        inPort.send(data, offset, count, timestamp)
+                                    }
+                                })
+                                outPort.connect(framer)
                                 outputConnection = outPort
                                 inputConnection = inPort
                                 _connectionStatus.value =
