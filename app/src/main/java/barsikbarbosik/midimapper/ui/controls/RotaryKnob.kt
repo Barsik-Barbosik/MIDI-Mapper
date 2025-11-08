@@ -4,10 +4,6 @@ import android.graphics.Paint
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -31,9 +27,7 @@ fun RotaryKnob(
     val startAngle = 120f
     val sweepAngle = 300f
 
-    var angle by remember {
-        mutableStateOf(startAngle + (value - min) / (max - min).toFloat() * sweepAngle)
-    }
+    val angle = startAngle + (value - min) / (max - min).toFloat() * sweepAngle
 
     Canvas(
         modifier
@@ -58,8 +52,6 @@ fun RotaryKnob(
                             relativeAngle = sweepAngle.toDouble()
                         }
                     }
-
-                    angle = (startAngle + relativeAngle).toFloat() % 360f
 
                     // Map to value
                     val floatValue = min + (relativeAngle / sweepAngle) * (max - min)

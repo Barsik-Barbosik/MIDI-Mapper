@@ -177,7 +177,7 @@ fun DevicesScreen(
         /*-- KNOB TEST --*/
         val minValue = 0
         val maxValue = 127
-        var knobValue by remember { mutableStateOf(0) }
+        var knobValue by remember { mutableStateOf(64) }
 
         RotaryKnob(
             value = knobValue,
@@ -191,5 +191,9 @@ fun DevicesScreen(
             text = "Knob value: $knobValue",
             style = MaterialTheme.typography.bodyMedium
         )
+
+        Button(onClick = { knobValue = 100 }) {
+            Text("Set to 100")
+        }
     }
 }
