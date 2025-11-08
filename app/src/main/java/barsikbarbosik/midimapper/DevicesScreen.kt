@@ -4,10 +4,13 @@ package barsikbarbosik.midimapper
 import android.media.midi.MidiDeviceInfo
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Divider
@@ -23,6 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -33,8 +37,13 @@ import barsikbarbosik.midimapper.ui.controls.RotaryKnob
 fun DevicesScreen(
     devices: List<MidiDeviceInfo>,
     connectionStatus: String,
+    knobValue: Int,
+    learningMode: Boolean,
+    learnedCc: Int?,
     onConnect: (MidiDeviceInfo, MidiDeviceInfo) -> Unit,
     onDisconnect: () -> Unit,
+    onKnobValueChange: (Int) -> Unit,
+    onToggleLearning: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var expandedSource by remember { mutableStateOf(false) }
@@ -172,28 +181,29 @@ fun DevicesScreen(
             ) {
                 Text("Disconnect", color = Color.White)
             }
-        }
 
-        /*-- KNOB TEST --*/
-        val minValue = 0
-        val maxValue = 127
-        var knobValue by remember { mutableStateOf(64) }
+            Divider(modifier = Modifier.padding(vertical = 8.dp))
 
-        RotaryKnob(
-            value = knobValue,
-            onValueChange = { knobValue = it },
-            modifier = Modifier.size(150.dp),
-            min = minValue,
-            max = maxValue
-        )
-
-        Text(
-            text = "Knob value: $knobValue",
-            style = MaterialTheme.typography.bodyMedium
-        )
-
-        Button(onClick = { knobValue = 100 }) {
-            Text("Set to 100")
+            /*-- KNOB --*/
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                RotaryKnob(
+                    value = knobValue,
+                    onValueChange = onKnobValueChange,
+                    modifier = Modifier.size(150.dp),
+                    min = 0,
+                    max = 127
+                )
+                Spacer(modifier = Modifier.width(24.dp))
+                Column {
+                    Text(
+                        text = learnedCc?.let { "Learned CC: $it" } ?: "No CC learned",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Button(onClick = onToggleLearning, enabled = isConnected) {
+                        Text(if (learningMode) "Listening..." else "Learn CC")
+                    }
+                }
+            }
         }
     }
 }

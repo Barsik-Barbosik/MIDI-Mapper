@@ -24,13 +24,21 @@ class MainActivity : ComponentActivity() {
             MidiMapperTheme {
                 val devices by viewModel.devices.collectAsState()
                 val connectionStatus by viewModel.connectionStatus.collectAsState()
+                val knobValue by viewModel.knobValue.collectAsState()
+                val learningMode by viewModel.learningMode.collectAsState()
+                val learnedCc by viewModel.learnedCcNumber.collectAsState()
 
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     DevicesScreen(
                         devices = devices,
                         connectionStatus = connectionStatus,
+                        knobValue = knobValue,
+                        learningMode = learningMode,
+                        learnedCc = learnedCc,
                         onConnect = { src, tgt -> viewModel.connectDevices(src, tgt) },
                         onDisconnect = { viewModel.disconnectDevices() },
+                        onKnobValueChange = { value -> viewModel.setKnobValue(value) },
+                        onToggleLearning = { viewModel.toggleLearningMode() },
                         modifier = Modifier.padding(innerPadding)
                     )
                 }

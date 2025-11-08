@@ -27,6 +27,33 @@ class MidiViewModel(context: Context) : ViewModel() {
     private var srcDevice: MidiDevice? = null
     private var tgtDevice: MidiDevice? = null
 
+    private val _knobValue = MutableStateFlow(64)
+    val knobValue = _knobValue.asStateFlow()
+
+    private val _learnedCcNumber = MutableStateFlow<Int?>(null)
+    val learnedCcNumber = _learnedCcNumber.asStateFlow()
+
+    private val _learningMode = MutableStateFlow(false)
+    val learningMode = _learningMode.asStateFlow()
+
+    fun toggleLearningMode() {
+        _learningMode.value = !_learningMode.value
+    }
+
+    fun setKnobValue(newValue: Int) {
+        _knobValue.value = newValue
+        _learnedCcNumber.value?.let { cc ->
+            inputConnection?.let { inPort ->
+                val msg = byteArrayOf(0xB0.toByte(), cc.toByte(), newValue.toByte())
+                try {
+                    inPort.send(msg, 0, msg.size)
+                } catch (e: Exception) {
+                    Log.e("MidiMapper", "Error sending CC message from knob", e)
+                }
+            }
+        }
+    }
+
     init {
         refreshDevices()
         midiManager.registerDeviceCallback(object : MidiManager.DeviceCallback() {
@@ -67,6 +94,20 @@ class MidiViewModel(context: Context) : ViewModel() {
                                         count: Int,
                                         timestamp: Long
                                     ) {
+                                        if (count > 2 && data[offset].toInt() and 0xF0 == 0xB0) {
+                                            val ccNumber = data[offset + 1].toInt()
+                                            val ccValue = data[offset + 2].toInt()
+
+                                            if (_learningMode.value) {
+                                                _learnedCcNumber.value = ccNumber
+                                                _knobValue.value = ccValue
+                                                _learningMode.value = false
+                                                return // Consume the message
+                                            } else if (ccNumber == _learnedCcNumber.value) {
+                                                _knobValue.value = ccValue
+                                            }
+                                        }
+                                        // Forward all messages
                                         inPort.send(data, offset, count, timestamp)
                                     }
                                 })
@@ -97,6 +138,8 @@ class MidiViewModel(context: Context) : ViewModel() {
             srcDevice?.close()
             tgtDevice?.close()
             _connectionStatus.value = "No connection"
+            _learnedCcNumber.value = null
+            _learningMode.value = false
         } catch (e: Exception) {
             Log.e("MidiMapper", "Error disconnecting", e)
         } finally {
