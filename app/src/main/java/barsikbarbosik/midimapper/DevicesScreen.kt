@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Divider
@@ -25,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import barsikbarbosik.midimapper.ui.controls.RotaryKnob
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -171,5 +173,23 @@ fun DevicesScreen(
                 Text("Disconnect", color = Color.White)
             }
         }
+
+        /*-- KNOB TEST --*/
+        val minValue = 0
+        val maxValue = 127
+        var knobValue by remember { mutableStateOf(0) }
+
+        RotaryKnob(
+            value = knobValue,
+            onValueChange = { knobValue = it },
+            modifier = Modifier.size(150.dp),
+            min = minValue,
+            max = maxValue
+        )
+
+        Text(
+            text = "Knob value: $knobValue",
+            style = MaterialTheme.typography.bodyMedium
+        )
     }
 }
