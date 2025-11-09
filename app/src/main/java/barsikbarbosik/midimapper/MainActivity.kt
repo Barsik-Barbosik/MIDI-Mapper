@@ -27,6 +27,7 @@ class MainActivity : ComponentActivity() {
                 val knobValue by viewModel.knobValue.collectAsState()
                 val learningMode by viewModel.learningMode.collectAsState()
                 val learnedCc by viewModel.learnedCcNumber.collectAsState()
+                val customSysExMessage by viewModel.customSysExMessage.collectAsState()
 
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     DevicesScreen(
@@ -35,6 +36,8 @@ class MainActivity : ComponentActivity() {
                         knobValue = knobValue,
                         learningMode = learningMode,
                         learnedCc = learnedCc,
+                        customSysExMessage = customSysExMessage,
+                        onSetCustomSysExMessage = { viewModel.setCustomSysExMessage(it) },
                         onConnect = { src, tgt -> viewModel.connectDevices(src, tgt) },
                         onDisconnect = { viewModel.disconnectDevices() },
                         onKnobValueChange = { value -> viewModel.setKnobValue(value) },

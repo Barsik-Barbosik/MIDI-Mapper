@@ -40,6 +40,8 @@ fun DevicesScreen(
     knobValue: Int,
     learningMode: Boolean,
     learnedCc: Int?,
+    customSysExMessage: String,
+    onSetCustomSysExMessage: (String) -> Unit,
     onConnect: (MidiDeviceInfo, MidiDeviceInfo) -> Unit,
     onDisconnect: () -> Unit,
     onKnobValueChange: (Int) -> Unit,
@@ -204,6 +206,15 @@ fun DevicesScreen(
                     }
                 }
             }
+
+            Spacer(modifier = Modifier.size(16.dp))
+
+            TextField(
+                value = customSysExMessage,
+                onValueChange = onSetCustomSysExMessage,
+                label = { Text("SysEx Message (%V = value)") },
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }

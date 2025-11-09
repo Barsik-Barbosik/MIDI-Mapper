@@ -36,19 +36,29 @@ class MidiViewModel(context: Context) : ViewModel() {
     private val _learningMode = MutableStateFlow(false)
     val learningMode = _learningMode.asStateFlow()
 
+    private val _customSysExMessage =
+        MutableStateFlow("F04419017F010203000000000000000000006A0100000000%VF7")
+    val customSysExMessage = _customSysExMessage.asStateFlow()
+
+    fun setCustomSysExMessage(message: String) {
+        _customSysExMessage.value = message
+    }
+
     fun toggleLearningMode() {
         _learningMode.value = !_learningMode.value
     }
 
     fun setKnobValue(newValue: Int) {
         _knobValue.value = newValue
-        _learnedCcNumber.value?.let { cc ->
-            inputConnection?.let { inPort ->
-                val msg = byteArrayOf(0xB0.toByte(), cc.toByte(), newValue.toByte())
+        inputConnection?.let { inPort ->
+            val hexValue = String.format("%02X", newValue)
+            val sysExString = _customSysExMessage.value.replace("%V", hexValue)
+            if (sysExString.isNotBlank()) {
                 try {
-                    inPort.send(msg, 0, msg.size)
+                    val sysExMsg = hexStringToByteArray(sysExString)
+                    inPort.send(sysExMsg, 0, sysExMsg.size)
                 } catch (e: Exception) {
-                    Log.e("MidiMapper", "Error sending CC message from knob", e)
+                    Log.e("MidiMapper", "Error sending SysEx message", e)
                 }
             }
         }
@@ -104,10 +114,11 @@ class MidiViewModel(context: Context) : ViewModel() {
                                                 _learningMode.value = false
                                                 return // Consume the message
                                             } else if (ccNumber == _learnedCcNumber.value) {
-                                                _knobValue.value = ccValue
+                                                setKnobValue(ccValue) // Update knob and send SysEx
+                                                return // Consume the original CC message
                                             }
                                         }
-                                        // Forward all messages
+                                        // Forward all other messages
                                         inPort.send(data, offset, count, timestamp)
                                     }
                                 })
@@ -148,5 +159,15 @@ class MidiViewModel(context: Context) : ViewModel() {
             srcDevice = null
             tgtDevice = null
         }
+    }
+
+    private fun hexStringToByteArray(s: String): ByteArray {
+        val len = s.length
+        val data = ByteArray(len / 2)
+        for (i in 0 until len step 2) {
+            data[i / 2] =
+                ((Character.digit(s[i], 16) shl 4) + Character.digit(s[i + 1], 16)).toByte()
+        }
+        return data
     }
 }
