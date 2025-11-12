@@ -30,7 +30,8 @@ class MainActivity : ComponentActivity() {
                 val customSysExMessage by viewModel.customSysExMessage.collectAsState()
 
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    DevicesScreen(
+                    AppNavigation(
+                        modifier = Modifier.padding(innerPadding),
                         devices = devices,
                         connectionStatus = connectionStatus,
                         knobValue = knobValue,
@@ -42,7 +43,6 @@ class MainActivity : ComponentActivity() {
                         onDisconnect = { viewModel.disconnectDevices() },
                         onKnobValueChange = { value -> viewModel.setKnobValue(value) },
                         onToggleLearning = { viewModel.toggleLearningMode() },
-                        modifier = Modifier.padding(innerPadding)
                     )
                 }
             }
