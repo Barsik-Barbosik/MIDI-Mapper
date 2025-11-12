@@ -24,25 +24,17 @@ class MainActivity : ComponentActivity() {
             MidiMapperTheme {
                 val devices by viewModel.devices.collectAsState()
                 val connectionStatus by viewModel.connectionStatus.collectAsState()
-                val knobValue by viewModel.knobValue.collectAsState()
-                val learningMode by viewModel.learningMode.collectAsState()
-                val learnedCc by viewModel.learnedCcNumber.collectAsState()
-                val customSysExMessage by viewModel.customSysExMessage.collectAsState()
+                val knobValues by viewModel.knobValues.collectAsState()
 
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     AppNavigation(
                         modifier = Modifier.padding(innerPadding),
                         devices = devices,
                         connectionStatus = connectionStatus,
-                        knobValue = knobValue,
-                        learningMode = learningMode,
-                        learnedCc = learnedCc,
-                        customSysExMessage = customSysExMessage,
-                        onSetCustomSysExMessage = { viewModel.setCustomSysExMessage(it) },
+                        knobValues = knobValues,
                         onConnect = { src, tgt -> viewModel.connectDevices(src, tgt) },
                         onDisconnect = { viewModel.disconnectDevices() },
-                        onKnobValueChange = { value -> viewModel.setKnobValue(value) },
-                        onToggleLearning = { viewModel.toggleLearningMode() },
+                        onKnobValueChange = { index, value -> viewModel.setKnobValue(index, value) },
                     )
                 }
             }

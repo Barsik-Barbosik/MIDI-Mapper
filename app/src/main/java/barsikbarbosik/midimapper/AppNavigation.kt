@@ -1,6 +1,7 @@
 package barsikbarbosik.midimapper
 
 import android.media.midi.MidiDeviceInfo
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,7 +11,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Divider
@@ -23,35 +25,49 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import barsikbarbosik.midimapper.ui.controls.RotaryKnob
+
+data class KnobSettings(
+    var name: String,
+    var minValue: Int,
+    var maxValue: Int,
+    var sysex: String
+)
 
 @Composable
 fun AppNavigation(
     modifier: Modifier = Modifier,
     devices: List<MidiDeviceInfo>,
     connectionStatus: String,
-    knobValue: Int,
-    learningMode: Boolean,
-    learnedCc: Int?,
-    customSysExMessage: String,
-    onSetCustomSysExMessage: (String) -> Unit,
+    knobValues: List<Int>,
     onConnect: (MidiDeviceInfo, MidiDeviceInfo) -> Unit,
     onDisconnect: () -> Unit,
-    onKnobValueChange: (Int) -> Unit,
-    onToggleLearning: () -> Unit,
+    onKnobValueChange: (Int, Int) -> Unit,
 ) {
     val navController = rememberNavController()
+    val knobSettings = remember {
+        mutableStateListOf<KnobSettings>().apply {
+            repeat(20) { i ->
+                add(KnobSettings("Knob ${i + 1}", 0, 127, ""))
+            }
+        }
+    }
+
     NavHost(navController = navController, startDestination = "devices", modifier = modifier) {
         composable("devices") {
             DeviceSelectionScreen(
@@ -64,15 +80,27 @@ fun AppNavigation(
         }
         composable("knobs") {
             KnobsScreen(
-                knobValue = knobValue,
-                learningMode = learningMode,
-                learnedCc = learnedCc,
+                knobValues = knobValues,
+                knobSettings = knobSettings,
                 onKnobValueChange = onKnobValueChange,
-                onToggleLearning = onToggleLearning,
-                customSysExMessage = customSysExMessage,
-                onSetCustomSysExMessage = onSetCustomSysExMessage,
                 navController = navController
             )
+        }
+        composable(
+            "knob-settings/{index}",
+            arguments = listOf(navArgument("index") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val index = backStackEntry.arguments?.getInt("index")
+            if (index != null) {
+                KnobSettingsScreen(
+                    navController = navController,
+                    knobIndex = index,
+                    knobSetting = knobSettings[index],
+                    onSave = { newSettings ->
+                        knobSettings[index] = newSettings
+                    }
+                )
+            }
         }
     }
 }
@@ -240,61 +268,167 @@ fun DeviceSelectionScreen(
 
 @Composable
 fun KnobsScreen(
-    knobValue: Int,
-    learningMode: Boolean,
-    learnedCc: Int?,
-    onKnobValueChange: (Int) -> Unit,
-    onToggleLearning: () -> Unit,
-    customSysExMessage: String,
-    onSetCustomSysExMessage: (String) -> Unit,
+    knobValues: List<Int>,
+    knobSettings: List<KnobSettings>,
+    onKnobValueChange: (Int, Int) -> Unit,
     navController: NavController
 ) {
+    var isConfigurable by remember { mutableStateOf(false) }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        Column(
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(4),
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                RotaryKnob(
-                    value = knobValue,
-                    onValueChange = onKnobValueChange,
-                    modifier = Modifier.size(150.dp),
-                    min = 0,
-                    max = 127
-                )
-                Spacer(modifier = Modifier.width(24.dp))
-                Column {
-                    Text(
-                        text = learnedCc?.let { "Learned CC: $it" } ?: "No CC learned",
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                    Button(onClick = onToggleLearning, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B998B))) {
-                        Text(if (learningMode) "Listening..." else "Learn CC")
+            items(20) { index ->
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Box(
+                        modifier = Modifier.pointerInput(isConfigurable) {
+                            detectTapGestures(
+                                onLongPress = {
+                                    if (isConfigurable) {
+                                        navController.navigate("knob-settings/$index")
+                                    }
+                                }
+                            )
+                        }
+                    ) {
+                        RotaryKnob(
+                            value = knobValues.getOrElse(index) { 0 },
+                            onValueChange = { newValue -> onKnobValueChange(index, newValue) },
+                            modifier = Modifier.size(80.dp),
+                            min = knobSettings[index].minValue,
+                            max = knobSettings[index].maxValue
+                        )
                     }
+                    Text(knobSettings[index].name, style = MaterialTheme.typography.bodySmall)
                 }
             }
+        }
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Button(
+                onClick = { isConfigurable = !isConfigurable },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = if (isConfigurable) Color(0xFFF44336) else Color(0xFF1B998B))
+            ) {
+                Text(if (isConfigurable) "Done" else "Configure")
+            }
+            Button(
+                onClick = { navController.popBackStack() },
+                modifier = Modifier
+                    .fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B998B))
+            ) {
+                Text("Back")
+            }
+        }
+    }
+}
 
-            Spacer(modifier = Modifier.size(16.dp))
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun KnobSettingsScreen(
+    navController: NavController,
+    knobIndex: Int,
+    knobSetting: KnobSettings,
+    onSave: (KnobSettings) -> Unit
+) {
+    var knobName by remember { mutableStateOf(knobSetting.name) }
+    var minValue by remember { mutableStateOf(knobSetting.minValue.toString()) }
+    var maxValue by remember { mutableStateOf(knobSetting.maxValue.toString()) }
+    var sysex by remember { mutableStateOf(knobSetting.sysex) }
 
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text("Configure Knob $knobIndex", style = MaterialTheme.typography.titleMedium)
+
+        TextField(
+            value = knobName,
+            onValueChange = { knobName = it },
+            label = { Text("Knob Name") },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
             TextField(
-                value = customSysExMessage,
-                onValueChange = onSetCustomSysExMessage,
-                label = { Text("SysEx Message (%V = value)") },
-                modifier = Modifier.fillMaxWidth()
+                value = minValue,
+                onValueChange = { minValue = it },
+                label = { Text("Min Value") },
+                modifier = Modifier.weight(1f)
+            )
+            TextField(
+                value = maxValue,
+                onValueChange = { maxValue = it },
+                label = { Text("Max Value") },
+                modifier = Modifier.weight(1f)
             )
         }
+
+        TextField(
+            value = sysex,
+            onValueChange = { sysex = it },
+            label = { Text("SysEx Message") },
+            modifier = Modifier.fillMaxWidth()
+        )
+
         Button(
-            onClick = { navController.popBackStack() },
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.BottomCenter),
+            onClick = { /* TODO: Implement Learn logic */ },
+            modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B998B))
         ) {
-            Text("Back")
+            Text("Learn")
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Button(
+                onClick = {
+                    val newSettings = KnobSettings(
+                        name = knobName,
+                        minValue = minValue.toIntOrNull() ?: 0,
+                        maxValue = maxValue.toIntOrNull() ?: 127,
+                        sysex = sysex
+                    )
+                    onSave(newSettings)
+                    navController.popBackStack()
+                },
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B998B))
+            ) {
+                Text("Save")
+            }
+            Button(
+                onClick = { navController.popBackStack() },
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF44336))
+            ) {
+                Text("Cancel")
+            }
         }
     }
 }
