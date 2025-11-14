@@ -52,6 +52,12 @@ data class KnobSettings(
     var sysex: String
 )
 
+@Serializable
+data class MidiSetup(
+    var setupName: String,
+    var knobSettings: List<KnobSettings>
+)
+
 @Composable
 fun AppNavigation(
     modifier: Modifier = Modifier,
@@ -64,9 +70,7 @@ fun AppNavigation(
 ) {
     val context = LocalContext.current
     val navController = rememberNavController()
-    val knobSettings = remember {
-        SettingsManager.loadSettings(context).toMutableStateList()
-    }
+    var midiSetup by remember { mutableStateOf(SettingsManager.loadSettings(context, "knob_settings.json")) }
 
     NavHost(navController = navController, startDestination = "devices", modifier = modifier) {
         composable("devices") {
@@ -75,13 +79,18 @@ fun AppNavigation(
                 connectionStatus = connectionStatus,
                 onConnect = onConnect,
                 onDisconnect = onDisconnect,
-                navController = navController
+                navController = navController,
+                midiSetup = midiSetup,
+                onMidiSetupChange = { midiSetup = it },
+                onSaveSetup = { SettingsManager.saveSettings(context, midiSetup) },
+                onLoadSetup = { midiSetup = SettingsManager.loadSettings(context, it) },
+                getAvailableSetups = { SettingsManager.getAvailableSetups(context) }
             )
         }
         composable("knobs") {
             KnobsScreen(
                 knobValues = knobValues,
-                knobSettings = knobSettings,
+                knobSettings = midiSetup.knobSettings,
                 onKnobValueChange = onKnobValueChange,
                 navController = navController
             )
@@ -95,10 +104,11 @@ fun AppNavigation(
                 KnobSettingsScreen(
                     navController = navController,
                     knobIndex = index,
-                    knobSetting = knobSettings[index],
+                    knobSetting = midiSetup.knobSettings[index],
                     onSave = { newSettings ->
-                        knobSettings[index] = newSettings
-                        SettingsManager.saveSettings(context, knobSettings)
+                        val newKnobSettings = midiSetup.knobSettings.toMutableList()
+                        newKnobSettings[index] = newSettings
+                        midiSetup = midiSetup.copy(knobSettings = newKnobSettings)
                     }
                 )
             }
@@ -113,10 +123,16 @@ fun DeviceSelectionScreen(
     connectionStatus: String,
     onConnect: (MidiDeviceInfo, MidiDeviceInfo) -> Unit,
     onDisconnect: () -> Unit,
-    navController: NavController
+    navController: NavController,
+    midiSetup: MidiSetup,
+    onMidiSetupChange: (MidiSetup) -> Unit,
+    onSaveSetup: () -> Unit,
+    onLoadSetup: (String) -> Unit,
+    getAvailableSetups: () -> List<String>
 ) {
     var expandedSource by remember { mutableStateOf(false) }
     var expandedTarget by remember { mutableStateOf(false) }
+    var expandedSetups by remember { mutableStateOf(false) }
 
     var selectedSource by remember { mutableStateOf<MidiDeviceInfo?>(null) }
     var selectedTarget by remember { mutableStateOf<MidiDeviceInfo?>(null) }
@@ -137,6 +153,51 @@ fun DeviceSelectionScreen(
                 "Select Source and Target MIDI Devices",
                 style = MaterialTheme.typography.titleMedium
             )
+
+            TextField(
+                value = midiSetup.setupName,
+                onValueChange = { onMidiSetupChange(midiSetup.copy(setupName = it)) },
+                label = { Text("Setup Name") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Button(
+                    onClick = onSaveSetup,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B998B))
+                ) {
+                    Text("Save setup")
+                }
+                ExposedDropdownMenuBox(
+                    expanded = expandedSetups,
+                    onExpandedChange = { expandedSetups = !expandedSetups },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Button(
+                        onClick = { expandedSetups = true },
+                        modifier = Modifier.fillMaxWidth().menuAnchor(),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B998B))
+                    ) {
+                        Text("Load setup")
+                    }
+                    ExposedDropdownMenu(
+                        expanded = expandedSetups,
+                        onDismissRequest = { expandedSetups = false }
+                    ) {
+                        getAvailableSetups().forEach { setupName ->
+                            DropdownMenuItem(
+                                text = { Text(setupName) },
+                                onClick = {
+                                    onLoadSetup(setupName)
+                                    expandedSetups = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
 
             ExposedDropdownMenuBox(
                 expanded = expandedSource && !isConnected,
@@ -307,11 +368,11 @@ fun KnobsScreen(
                             value = knobValues.getOrElse(index) { 0 },
                             onValueChange = { newValue -> onKnobValueChange(index, newValue) },
                             modifier = Modifier.size(80.dp),
-                            min = knobSettings[index].minValue,
-                            max = knobSettings[index].maxValue
+                            min = knobSettings.getOrElse(index) { KnobSettings("", 0, 127, "") }.minValue,
+                            max = knobSettings.getOrElse(index) { KnobSettings("", 0, 127, "") }.maxValue
                         )
                     }
-                    Text(knobSettings[index].name, style = MaterialTheme.typography.bodySmall)
+                    Text(knobSettings.getOrElse(index) { KnobSettings("Knob ${index + 1}", 0, 127, "") }.name, style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
