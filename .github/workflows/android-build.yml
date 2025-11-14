@@ -34,7 +34,7 @@ jobs:
         with:
           tag_name: debug-${{ github.run_number }}
           release_name: Debug Build ${{ github.run_number }}
-          draft: true
+          draft: false
           prerelease: true
         env:
           GITHUB_TOKEN: ${{ secrets.REPO_PAT }}
