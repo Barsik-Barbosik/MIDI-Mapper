@@ -1,6 +1,6 @@
 # MIDI-Mapper
 
-Android app that works as a MIDI host and bridge. It intercepts incoming CC messages from a source device and sends custom SysEx messages to a target device for flexible MIDI routing and control.
+Android app that works as a MIDI host and bridge. It allows intercepting incoming CC messages from a source device and sending custom SysEx messages instead.
 
 ## Features
 
@@ -12,13 +12,13 @@ Android app that works as a MIDI host and bridge. It intercepts incoming CC mess
 
 ## Status
 
-This project is currently a work in progress, and there is no official release version yet. However, you can download a debug version of the app from the [GitHub Actions page](https://github.com/Barsik-Barbosik/MIDI-Mapper/actions).
+This project is currently a work in progress. However, you can download a debug version of the app from the [GitHub Releases page](https://github.com/Barsik-Barbosik/MIDI-Mapper/releases).
 
 Supported Android version: 6.0 (Marshmallow) and above.
 
 ## How to Use
 
-1.  Download the latest debug APK from the [GitHub Actions page](https://github.com/Barsik-Barbosik/MIDI-Mapper/actions).
+1.  Download the latest debug APK from the [GitHub Releases page](https://github.com/Barsik-Barbosik/MIDI-Mapper/releases).
 2.  Install the APK on your Android device.
 3.  Connect your source and target MIDI devices to your Android device (e.g., using a USB OTG adapter).
 4.  Open the MIDI-Mapper app.
