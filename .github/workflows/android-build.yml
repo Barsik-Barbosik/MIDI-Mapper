@@ -37,7 +37,7 @@ jobs:
           draft: true
           prerelease: true
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.REPO_PAT }}
 
       # Upload the APK to the GitHub release
       - name: Upload APK to Release
@@ -48,4 +48,4 @@ jobs:
           asset_name: MIDI-Mapper-debug.apk
           asset_content_type: application/vnd.android.package-archive
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.REPO_PAT }}
