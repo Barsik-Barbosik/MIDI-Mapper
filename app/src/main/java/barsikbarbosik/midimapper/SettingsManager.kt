@@ -1,6 +1,7 @@
 package barsikbarbosik.midimapper
 
 import android.content.Context
+import android.os.Environment
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -18,10 +19,11 @@ object SettingsManager {
     }
 
     fun saveSettings(context: Context, setup: MidiSetup) {
-        val json = Json.encodeToString(setup)
+        val json = Json { encodeDefaults = true }
+        val jsonString = json.encodeToString(setup)
         val setupsDir = getSetupsDirectory(context)
         val file = File(setupsDir, "${setup.setupName}.json")
-        file.writeText(json)
+        file.writeText(jsonString)
     }
 
     fun loadSettings(context: Context, fileName: String): MidiSetup {
@@ -65,7 +67,7 @@ object SettingsManager {
     private fun defaultSetup(setupName: String): MidiSetup {
         return MidiSetup(
             setupName = setupName,
-            knobSettings = List(20) { i -> KnobSettings("Knob ${i + 1}", 0, 127, "") }
+            knobSettings = List(20) { i -> KnobSettings("Knob ${i + 1}", 0, 127, "", 0) }
         )
     }
 }

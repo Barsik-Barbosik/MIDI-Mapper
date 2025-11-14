@@ -22,7 +22,8 @@ fun RotaryKnob(
     onValueChange: (Int) -> Unit,
     modifier: Modifier = Modifier,
     min: Int = 0,
-    max: Int = 127
+    max: Int = 127,
+    offset: Int = 0
 ) {
     val startAngle = 120f
     val sweepAngle = 300f
@@ -86,7 +87,7 @@ fun RotaryKnob(
 
         // Value text
         drawContext.canvas.nativeCanvas.apply {
-            val text = value.toString()
+            val text = (value - offset).toString()
             val textPaint = Paint().apply {
                 color = Color.White.toArgb()
                 textAlign = Paint.Align.CENTER

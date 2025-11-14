@@ -28,7 +28,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -49,7 +48,8 @@ data class KnobSettings(
     var name: String,
     var minValue: Int,
     var maxValue: Int,
-    var sysex: String
+    var sysex: String,
+    var offset: Int = 0
 )
 
 @Serializable
@@ -369,7 +369,8 @@ fun KnobsScreen(
                             onValueChange = { newValue -> onKnobValueChange(index, newValue) },
                             modifier = Modifier.size(80.dp),
                             min = knobSettings.getOrElse(index) { KnobSettings("", 0, 127, "") }.minValue,
-                            max = knobSettings.getOrElse(index) { KnobSettings("", 0, 127, "") }.maxValue
+                            max = knobSettings.getOrElse(index) { KnobSettings("", 0, 127, "") }.maxValue,
+                            offset = knobSettings.getOrElse(index) { KnobSettings("", 0, 127, "") }.offset
                         )
                     }
                     Text(knobSettings.getOrElse(index) { KnobSettings("Knob ${index + 1}", 0, 127, "") }.name, style = MaterialTheme.typography.bodySmall)
@@ -416,6 +417,7 @@ fun KnobSettingsScreen(
     var knobName by remember { mutableStateOf(knobSetting.name) }
     var minValue by remember { mutableStateOf(knobSetting.minValue.toString()) }
     var maxValue by remember { mutableStateOf(knobSetting.maxValue.toString()) }
+    var offset by remember { mutableStateOf(knobSetting.offset.toString()) }
     var sysex by remember { mutableStateOf(knobSetting.sysex) }
 
     Column(
@@ -452,6 +454,13 @@ fun KnobSettingsScreen(
         }
 
         TextField(
+            value = offset,
+            onValueChange = { offset = it },
+            label = { Text("Offset") },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        TextField(
             value = sysex,
             onValueChange = { sysex = it },
             label = { Text("SysEx Message") },
@@ -478,7 +487,8 @@ fun KnobSettingsScreen(
                         name = knobName,
                         minValue = minValue.toIntOrNull() ?: 0,
                         maxValue = maxValue.toIntOrNull() ?: 127,
-                        sysex = sysex
+                        sysex = sysex,
+                        offset = offset.toIntOrNull() ?: 0
                     )
                     onSave(newSettings)
                     navController.popBackStack()
