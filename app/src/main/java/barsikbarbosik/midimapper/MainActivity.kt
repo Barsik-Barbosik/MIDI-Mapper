@@ -34,7 +34,12 @@ class MainActivity : ComponentActivity() {
                         knobValues = knobValues,
                         onConnect = { src, tgt -> viewModel.connectDevices(src, tgt) },
                         onDisconnect = { viewModel.disconnectDevices() },
-                        onKnobValueChange = { index, value -> viewModel.setKnobValue(index, value) },
+                        onKnobValueChange = { index, value ->
+                            viewModel.setKnobValue(
+                                index,
+                                value
+                            )
+                        },
                     )
                 }
             }

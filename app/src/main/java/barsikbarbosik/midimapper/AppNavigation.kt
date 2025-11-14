@@ -25,14 +25,15 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.NavType
@@ -41,7 +42,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import barsikbarbosik.midimapper.ui.controls.RotaryKnob
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class KnobSettings(
     var name: String,
     var minValue: Int,
@@ -59,13 +62,10 @@ fun AppNavigation(
     onDisconnect: () -> Unit,
     onKnobValueChange: (Int, Int) -> Unit,
 ) {
+    val context = LocalContext.current
     val navController = rememberNavController()
     val knobSettings = remember {
-        mutableStateListOf<KnobSettings>().apply {
-            repeat(20) { i ->
-                add(KnobSettings("Knob ${i + 1}", 0, 127, ""))
-            }
-        }
+        SettingsManager.loadSettings(context).toMutableStateList()
     }
 
     NavHost(navController = navController, startDestination = "devices", modifier = modifier) {
@@ -98,6 +98,7 @@ fun AppNavigation(
                     knobSetting = knobSettings[index],
                     onSave = { newSettings ->
                         knobSettings[index] = newSettings
+                        SettingsManager.saveSettings(context, knobSettings)
                     }
                 )
             }
@@ -323,7 +324,11 @@ fun KnobsScreen(
             Button(
                 onClick = { isConfigurable = !isConfigurable },
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = if (isConfigurable) Color(0xFFF44336) else Color(0xFF1B998B))
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isConfigurable) Color(
+                        0xFFF44336
+                    ) else Color(0xFF1B998B)
+                )
             ) {
                 Text(if (isConfigurable) "Done" else "Configure")
             }

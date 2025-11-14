@@ -55,15 +55,13 @@ class MidiViewModel(context: Context) : ViewModel() {
     fun connectDevices(source: MidiDeviceInfo, target: MidiDeviceInfo) {
         disconnectDevices() // ensure no stale connections
 
-        midiManager.openDevice(source, {
-            src ->
+        midiManager.openDevice(source, { src ->
             if (src == null) {
                 Log.e("MidiMapper", "Failed to open source")
                 return@openDevice
             }
             srcDevice = src
-            midiManager.openDevice(target, {
-                tgt ->
+            midiManager.openDevice(target, { tgt ->
                 if (tgt == null) {
                     Log.e("MidiMapper", "Failed to open target")
                     return@openDevice
