@@ -13,6 +13,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.Cancel
+import androidx.compose.material.icons.filled.Done
+import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.LinkOff
+import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Sensors
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Divider
@@ -20,6 +31,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -70,7 +82,14 @@ fun AppNavigation(
 ) {
     val context = LocalContext.current
     val navController = rememberNavController()
-    var midiConfig by remember { mutableStateOf(SettingsManager.loadSettings(context, "default.json")) }
+    var midiConfig by remember {
+        mutableStateOf(
+            SettingsManager.loadSettings(
+                context,
+                "default.json"
+            )
+        )
+    }
 
     NavHost(navController = navController, startDestination = "devices", modifier = modifier) {
         composable("devices") {
@@ -161,12 +180,17 @@ fun DeviceSelectionScreen(
                 singleLine = true
             )
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
                 Button(
                     onClick = onSaveConfig,
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B998B))
                 ) {
+                    Icon(Icons.Filled.Save, contentDescription = "Save")
+                    Spacer(Modifier.size(ButtonDefaults.IconSpacing))
                     Text("Save config")
                 }
                 ExposedDropdownMenuBox(
@@ -176,9 +200,13 @@ fun DeviceSelectionScreen(
                 ) {
                     Button(
                         onClick = { expandedConfigs = true },
-                        modifier = Modifier.fillMaxWidth().menuAnchor(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B998B))
                     ) {
+                        Icon(Icons.Filled.FolderOpen, contentDescription = "Load")
+                        Spacer(Modifier.size(ButtonDefaults.IconSpacing))
                         Text("Load config")
                     }
                     ExposedDropdownMenu(
@@ -301,6 +329,8 @@ fun DeviceSelectionScreen(
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B998B))
             ) {
+                Icon(Icons.Filled.Link, contentDescription = "Connect")
+                Spacer(Modifier.size(ButtonDefaults.IconSpacing))
                 Text("Connect")
             }
 
@@ -317,6 +347,12 @@ fun DeviceSelectionScreen(
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828))
                 ) {
+                    Icon(
+                        Icons.Filled.LinkOff,
+                        contentDescription = "Disconnect",
+                        tint = Color.White
+                    )
+                    Spacer(Modifier.size(ButtonDefaults.IconSpacing))
                     Text("Disconnect", color = Color.White)
                 }
             }
@@ -329,6 +365,8 @@ fun DeviceSelectionScreen(
                 .align(Alignment.BottomCenter),
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B998B))
         ) {
+            Icon(Icons.Filled.ArrowForward, contentDescription = "Go to Knobs")
+            Spacer(Modifier.size(ButtonDefaults.IconSpacing))
             Text("Go to Knobs")
         }
     }
@@ -374,12 +412,44 @@ fun KnobsScreen(
                             value = knobValues.getOrElse(index) { 0 },
                             onValueChange = { newValue -> onKnobValueChange(index, newValue) },
                             modifier = Modifier.size(80.dp),
-                            min = knobSettings.getOrElse(index) { KnobSettings("", 0, 127, "", 0) }.minValue,
-                            max = knobSettings.getOrElse(index) { KnobSettings("", 0, 127, "", 0) }.maxValue,
-                            offset = knobSettings.getOrElse(index) { KnobSettings("", 0, 127, "", 0) }.offset
+                            min = knobSettings.getOrElse(index) {
+                                KnobSettings(
+                                    "",
+                                    0,
+                                    127,
+                                    "",
+                                    0
+                                )
+                            }.minValue,
+                            max = knobSettings.getOrElse(index) {
+                                KnobSettings(
+                                    "",
+                                    0,
+                                    127,
+                                    "",
+                                    0
+                                )
+                            }.maxValue,
+                            offset = knobSettings.getOrElse(index) {
+                                KnobSettings(
+                                    "",
+                                    0,
+                                    127,
+                                    "",
+                                    0
+                                )
+                            }.offset
                         )
                     }
-                    Text(knobSettings.getOrElse(index) { KnobSettings("Knob ${index + 1}", 0, 127, "", 0) }.name, style = MaterialTheme.typography.bodySmall)
+                    Text(knobSettings.getOrElse(index) {
+                        KnobSettings(
+                            "Knob ${index + 1}",
+                            0,
+                            127,
+                            "",
+                            0
+                        )
+                    }.name, style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
@@ -398,7 +468,15 @@ fun KnobsScreen(
                     ) else Color(0xFF1B998B)
                 )
             ) {
-                Text(if (isConfigurable) "Done" else "Configure")
+                if (isConfigurable) {
+                    Icon(Icons.Filled.Done, "Done")
+                    Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                    Text("Done")
+                } else {
+                    Icon(Icons.Filled.Tune, "Configure")
+                    Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                    Text("Configure")
+                }
             }
             Button(
                 onClick = { navController.popBackStack() },
@@ -406,6 +484,8 @@ fun KnobsScreen(
                     .fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B998B))
             ) {
+                Icon(Icons.Filled.ArrowBack, "Back")
+                Spacer(Modifier.size(ButtonDefaults.IconSpacing))
                 Text("Back")
             }
         }
@@ -478,6 +558,8 @@ fun KnobSettingsScreen(
             modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B998B))
         ) {
+            Icon(Icons.Filled.Sensors, "Learn")
+            Spacer(Modifier.size(ButtonDefaults.IconSpacing))
             Text("Learn")
         }
 
@@ -502,6 +584,8 @@ fun KnobSettingsScreen(
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B998B))
             ) {
+                Icon(Icons.Filled.Save, "Save")
+                Spacer(Modifier.size(ButtonDefaults.IconSpacing))
                 Text("Save")
             }
             Button(
@@ -509,7 +593,9 @@ fun KnobSettingsScreen(
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF44336))
             ) {
-                Text("Cancel")
+                Icon(Icons.Filled.Cancel, "Cancel", tint = Color.White)
+                Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                Text("Cancel", color = Color.White)
             }
         }
     }
