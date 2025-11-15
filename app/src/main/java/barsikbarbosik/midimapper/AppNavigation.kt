@@ -36,6 +36,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,6 +48,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -61,56 +64,63 @@ data class KnobSettings(
     var minValue: Int,
     var maxValue: Int,
     var sysex: String,
-    var offset: Int = 0
+    var offset: Int = 0,
+    var cc: Int? = null
 )
 
 @Serializable
 data class MidiConfig(
-    var configName: String,
-    var knobSettings: List<KnobSettings>
+    var configName: String = "default",
+    var knobSettings: List<KnobSettings> = List(20) { index ->
+        KnobSettings(
+            "Knob ${index + 1}",
+            0,
+            127,
+            "",
+            0,
+            null
+        )
+    }
 )
+
 
 @Composable
 fun AppNavigation(
     modifier: Modifier = Modifier,
-    devices: List<MidiDeviceInfo>,
-    connectionStatus: String,
-    knobValues: List<Int>,
-    onConnect: (MidiDeviceInfo, MidiDeviceInfo) -> Unit,
-    onDisconnect: () -> Unit,
-    onKnobValueChange: (Int, Int) -> Unit,
+    midiViewModel: MidiViewModel = viewModel(factory = MidiViewModelFactory(LocalContext.current))
 ) {
-    val context = LocalContext.current
     val navController = rememberNavController()
-    var midiConfig by remember {
-        mutableStateOf(
-            SettingsManager.loadSettings(
-                context,
-                "default.json"
-            )
-        )
-    }
+    val devices by midiViewModel.devices.collectAsState()
+    val midiConfig by midiViewModel.midiConfig.collectAsState()
+    val learnedCc by midiViewModel.learnedCc.collectAsState()
+    val knobValues by midiViewModel.knobValues.collectAsState()
+    val connectionStatus by midiViewModel.connectionStatus.collectAsState()
 
     NavHost(navController = navController, startDestination = "devices", modifier = modifier) {
         composable("devices") {
             DeviceSelectionScreen(
                 devices = devices,
                 connectionStatus = connectionStatus,
-                onConnect = onConnect,
-                onDisconnect = onDisconnect,
+                onConnect = { source, target -> midiViewModel.connect(source, target) },
+                onDisconnect = { midiViewModel.disconnect() },
                 navController = navController,
                 midiConfig = midiConfig,
-                onMidiConfigChange = { midiConfig = it },
-                onSaveConfig = { SettingsManager.saveSettings(context, midiConfig) },
-                onLoadConfig = { midiConfig = SettingsManager.loadSettings(context, it) },
-                getAvailableConfigs = { SettingsManager.getAvailableConfigs(context) }
+                onConfigNameChange = { midiViewModel.updateConfigName(it) },
+                onSaveConfig = { midiViewModel.saveMidiConfig() },
+                onLoadConfig = { midiViewModel.loadMidiConfig(it) },
+                getAvailableConfigs = { midiViewModel.getAvailableConfigs() }
             )
         }
         composable("knobs") {
             KnobsScreen(
                 knobValues = knobValues,
                 knobSettings = midiConfig.knobSettings,
-                onKnobValueChange = onKnobValueChange,
+                onKnobValueChange = { index, value ->
+                    midiViewModel.onKnobValueChange(
+                        index,
+                        value
+                    )
+                },
                 navController = navController
             )
         }
@@ -123,12 +133,21 @@ fun AppNavigation(
                 KnobSettingsScreen(
                     navController = navController,
                     knobIndex = index,
-                    knobSetting = midiConfig.knobSettings[index],
+                    knobSetting = midiConfig.knobSettings.getOrElse(index) {
+                        KnobSettings(
+                            "",
+                            0,
+                            127,
+                            "",
+                            0,
+                            null
+                        )
+                    },
                     onSave = { newSettings ->
-                        val newKnobSettings = midiConfig.knobSettings.toMutableList()
-                        newKnobSettings[index] = newSettings
-                        midiConfig = midiConfig.copy(knobSettings = newKnobSettings)
-                    }
+                        midiViewModel.updateKnobSetting(index, newSettings)
+                    },
+                    onStartLearning = { midiViewModel.startLearning(index) },
+                    learnedCc = learnedCc
                 )
             }
         }
@@ -144,7 +163,7 @@ fun DeviceSelectionScreen(
     onDisconnect: () -> Unit,
     navController: NavController,
     midiConfig: MidiConfig,
-    onMidiConfigChange: (MidiConfig) -> Unit,
+    onConfigNameChange: (String) -> Unit,
     onSaveConfig: () -> Unit,
     onLoadConfig: (String) -> Unit,
     getAvailableConfigs: () -> List<String>
@@ -156,7 +175,7 @@ fun DeviceSelectionScreen(
     var selectedSource by remember { mutableStateOf<MidiDeviceInfo?>(null) }
     var selectedTarget by remember { mutableStateOf<MidiDeviceInfo?>(null) }
 
-    val isConnected = connectionStatus.startsWith("Connected")
+    val isConnected = connectionStatus != "Not Connected"
 
     Box(
         modifier = Modifier
@@ -174,7 +193,7 @@ fun DeviceSelectionScreen(
 
             TextField(
                 value = midiConfig.configName,
-                onValueChange = { onMidiConfigChange(midiConfig.copy(configName = it)) },
+                onValueChange = onConfigNameChange,
                 label = { Text("Config Name") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
@@ -217,7 +236,7 @@ fun DeviceSelectionScreen(
                             DropdownMenuItem(
                                 text = { Text(configName) },
                                 onClick = {
-                                    onLoadConfig(configName)
+                                    onLoadConfig("$configName.json")
                                     expandedConfigs = false
                                 }
                             )
@@ -392,7 +411,8 @@ fun KnobsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            items(20) { index ->
+            items(knobSettings.size) { index ->
+                val setting = knobSettings[index]
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -412,44 +432,12 @@ fun KnobsScreen(
                             value = knobValues.getOrElse(index) { 0 },
                             onValueChange = { newValue -> onKnobValueChange(index, newValue) },
                             modifier = Modifier.size(80.dp),
-                            min = knobSettings.getOrElse(index) {
-                                KnobSettings(
-                                    "",
-                                    0,
-                                    127,
-                                    "",
-                                    0
-                                )
-                            }.minValue,
-                            max = knobSettings.getOrElse(index) {
-                                KnobSettings(
-                                    "",
-                                    0,
-                                    127,
-                                    "",
-                                    0
-                                )
-                            }.maxValue,
-                            offset = knobSettings.getOrElse(index) {
-                                KnobSettings(
-                                    "",
-                                    0,
-                                    127,
-                                    "",
-                                    0
-                                )
-                            }.offset
+                            min = setting.minValue,
+                            max = setting.maxValue,
+                            offset = setting.offset
                         )
                     }
-                    Text(knobSettings.getOrElse(index) {
-                        KnobSettings(
-                            "Knob ${index + 1}",
-                            0,
-                            127,
-                            "",
-                            0
-                        )
-                    }.name, style = MaterialTheme.typography.bodySmall)
+                    Text(setting.name, style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
@@ -498,13 +486,22 @@ fun KnobSettingsScreen(
     navController: NavController,
     knobIndex: Int,
     knobSetting: KnobSettings,
-    onSave: (KnobSettings) -> Unit
+    onSave: (KnobSettings) -> Unit,
+    onStartLearning: (Int) -> Unit,
+    learnedCc: Int?
 ) {
     var knobName by remember { mutableStateOf(knobSetting.name) }
     var minValue by remember { mutableStateOf(knobSetting.minValue.toString()) }
     var maxValue by remember { mutableStateOf(knobSetting.maxValue.toString()) }
     var offset by remember { mutableStateOf(knobSetting.offset.toString()) }
     var sysex by remember { mutableStateOf(knobSetting.sysex) }
+    var cc by remember { mutableStateOf(knobSetting.cc?.toString() ?: "") }
+
+    LaunchedEffect(learnedCc) {
+        if (learnedCc != null) {
+            cc = learnedCc.toString()
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -547,6 +544,14 @@ fun KnobSettingsScreen(
         )
 
         TextField(
+            value = cc,
+            onValueChange = { cc = it },
+            label = { Text("MIDI CC") },
+            modifier = Modifier.fillMaxWidth(),
+            readOnly = true
+        )
+
+        TextField(
             value = sysex,
             onValueChange = { sysex = it },
             label = { Text("SysEx Message") },
@@ -554,7 +559,7 @@ fun KnobSettingsScreen(
         )
 
         Button(
-            onClick = { /* TODO: Implement Learn logic */ },
+            onClick = { onStartLearning(knobIndex) },
             modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B998B))
         ) {
@@ -576,7 +581,8 @@ fun KnobSettingsScreen(
                         minValue = minValue.toIntOrNull() ?: 0,
                         maxValue = maxValue.toIntOrNull() ?: 127,
                         sysex = sysex,
-                        offset = offset.toIntOrNull() ?: 0
+                        offset = offset.toIntOrNull() ?: 0,
+                        cc = cc.toIntOrNull()
                     )
                     onSave(newSettings)
                     navController.popBackStack()

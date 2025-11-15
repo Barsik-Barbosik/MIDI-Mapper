@@ -1,120 +1,165 @@
 package barsikbarbosik.midimapper
 
 import android.content.Context
-import android.media.midi.MidiDevice
 import android.media.midi.MidiDeviceInfo
 import android.media.midi.MidiInputPort
 import android.media.midi.MidiManager
 import android.media.midi.MidiOutputPort
 import android.media.midi.MidiReceiver
-import android.util.Log
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
-class MidiViewModel(context: Context) : ViewModel() {
-
+class MidiViewModel(private val context: Context) : ViewModel() {
     private val midiManager = context.getSystemService(Context.MIDI_SERVICE) as MidiManager
 
     private val _devices = MutableStateFlow<List<MidiDeviceInfo>>(emptyList())
-    val devices = _devices.asStateFlow()
+    val devices: StateFlow<List<MidiDeviceInfo>> = _devices.asStateFlow()
 
-    private val _connectionStatus = MutableStateFlow("No connection")
-    val connectionStatus = _connectionStatus.asStateFlow()
+    private val _midiConfig = MutableStateFlow(MidiConfig())
+    val midiConfig: StateFlow<MidiConfig> = _midiConfig.asStateFlow()
 
-    private var inputConnection: MidiInputPort? = null
-    private var outputConnection: MidiOutputPort? = null
-    private var srcDevice: MidiDevice? = null
-    private var tgtDevice: MidiDevice? = null
+    private val _learningKnobIndex = MutableStateFlow<Int?>(null)
+
+    private val _learnedCc = MutableStateFlow<Int?>(null)
+    val learnedCc: StateFlow<Int?> = _learnedCc.asStateFlow()
 
     private val _knobValues = MutableStateFlow(List(20) { 0 })
-    val knobValues = _knobValues.asStateFlow()
+    val knobValues: StateFlow<List<Int>> = _knobValues.asStateFlow()
 
-    fun setKnobValue(index: Int, newValue: Int) {
-        _knobValues.update { currentValues ->
-            currentValues.toMutableList().apply {
-                set(index, newValue)
+    private val _connectionStatus = MutableStateFlow("Not Connected")
+    val connectionStatus: StateFlow<String> = _connectionStatus.asStateFlow()
+
+    private var sourceOutputPort: MidiOutputPort? = null
+    private var targetInputPort: MidiInputPort? = null
+
+    val messageReceiver: MidiReceiver = object : MidiReceiver() {
+        override fun onSend(msg: ByteArray, offset: Int, count: Int, timestamp: Long) {
+            viewModelScope.launch {
+                val learningIndex = _learningKnobIndex.value
+                if (learningIndex != null) {
+                    if (msg[offset].toInt() and 0xF0 == 0xB0) { // Control Change
+                        val cc = msg[offset + 1].toInt()
+                        _learnedCc.value = cc
+                        updateKnobSetting(
+                            learningIndex,
+                            _midiConfig.value.knobSettings[learningIndex].copy(cc = cc)
+                        )
+                        _learningKnobIndex.value = null
+                    }
+                } else {
+                    if (msg[offset].toInt() and 0xF0 == 0xB0) { // Control Change
+                        val cc = msg[offset + 1].toInt()
+                        val value = msg[offset + 2].toInt()
+                        val knobIndex = _midiConfig.value.knobSettings.indexOfFirst { it.cc == cc }
+                        if (knobIndex != -1) {
+                            onKnobValueChange(knobIndex, value)
+                        }
+                    }
+                }
             }
         }
-        // TODO: Send MIDI message based on knob configuration
     }
 
     init {
-        refreshDevices()
-        midiManager.registerDeviceCallback(object : MidiManager.DeviceCallback() {
-            override fun onDeviceAdded(device: MidiDeviceInfo?) = refreshDevices()
-            override fun onDeviceRemoved(device: MidiDeviceInfo?) = refreshDevices()
-        }, null)
-    }
-
-    private fun refreshDevices() {
         _devices.value = midiManager.devices.toList()
+
+        midiManager.registerDeviceCallback(object : MidiManager.DeviceCallback() {
+            override fun onDeviceAdded(device: MidiDeviceInfo) {
+                _devices.value = midiManager.devices.toList()
+            }
+
+            override fun onDeviceRemoved(device: MidiDeviceInfo) {
+                _devices.value = midiManager.devices.toList()
+            }
+        }, null)
+
+        viewModelScope.launch {
+            loadMidiConfig("default.json")
+        }
     }
 
-    fun connectDevices(source: MidiDeviceInfo, target: MidiDeviceInfo) {
-        disconnectDevices() // ensure no stale connections
+    fun connect(sourceDevice: MidiDeviceInfo, targetDevice: MidiDeviceInfo) {
+        val sourcePort = sourceDevice.ports.first { it.type == MidiDeviceInfo.PortInfo.TYPE_OUTPUT }
+        midiManager.openDevice(sourceDevice, { device ->
+            sourceOutputPort = device.openOutputPort(sourcePort.portNumber)
+            val framer = MidiFramer(messageReceiver)
+            sourceOutputPort?.connect(framer)
+            _connectionStatus.value =
+                "Connected to ${sourceDevice.properties.getString(MidiDeviceInfo.PROPERTY_NAME)} and ${
+                    targetDevice.properties.getString(MidiDeviceInfo.PROPERTY_NAME)
+                }"
+        }, null)
 
-        midiManager.openDevice(source, { src ->
-            if (src == null) {
-                Log.e("MidiMapper", "Failed to open source")
-                return@openDevice
-            }
-            srcDevice = src
-            midiManager.openDevice(target, { tgt ->
-                if (tgt == null) {
-                    Log.e("MidiMapper", "Failed to open target")
-                    return@openDevice
-                }
-                tgtDevice = tgt
-                try {
-                    val outPort = src.openOutputPort(0)
-                    val inPort = tgt.openInputPort(0)
-                    if (outPort != null && inPort != null) {
-                        val receiver = object : MidiReceiver() {
-                            override fun onSend(
-                                data: ByteArray,
-                                offset: Int,
-                                count: Int,
-                                timestamp: Long
-                            ) {
-                                // TODO: Implement MIDI message mapping
-                                // For now, just forward all messages
-                                inPort.send(data, offset, count, timestamp)
-                            }
-                        }
-                        outPort.connect(receiver)
-                        outputConnection = outPort
-                        inputConnection = inPort
-                        _connectionStatus.value =
-                            "Connected: ${source.properties.getString(MidiDeviceInfo.PROPERTY_NAME)} → ${
-                                target.properties.getString(
-                                    MidiDeviceInfo.PROPERTY_NAME
-                                )
-                            }"
-                        Log.i("MidiMapper", _connectionStatus.value)
-                    }
-                } catch (e: Exception) {
-                    Log.e("MidiMapper", "Error connecting", e)
-                }
-            }, null)
+        val targetPort = targetDevice.ports.first { it.type == MidiDeviceInfo.PortInfo.TYPE_INPUT }
+        midiManager.openDevice(targetDevice, { device ->
+            targetInputPort = device.openInputPort(targetPort.portNumber)
         }, null)
     }
 
-    fun disconnectDevices() {
-        try {
-            outputConnection?.close()
-            inputConnection?.close()
-            srcDevice?.close()
-            tgtDevice?.close()
-            _connectionStatus.value = "No connection"
-        } catch (e: Exception) {
-            Log.e("MidiMapper", "Error disconnecting", e)
-        } finally {
-            inputConnection = null
-            outputConnection = null
-            srcDevice = null
-            tgtDevice = null
+    fun disconnect() {
+        sourceOutputPort?.close()
+        targetInputPort?.close()
+        sourceOutputPort = null
+        targetInputPort = null
+        _connectionStatus.value = "Not Connected"
+    }
+
+    fun startLearning(knobIndex: Int) {
+        _learningKnobIndex.value = knobIndex
+        _learnedCc.value = null
+    }
+
+    fun updateKnobSetting(knobIndex: Int, newSettings: KnobSettings) {
+        val currentConfig = _midiConfig.value
+        val newKnobSettings = currentConfig.knobSettings.toMutableList()
+        if (knobIndex >= 0 && knobIndex < newKnobSettings.size) {
+            newKnobSettings[knobIndex] = newSettings
+        } else if (knobIndex == newKnobSettings.size) {
+            newKnobSettings.add(newSettings)
         }
+        _midiConfig.value = currentConfig.copy(knobSettings = newKnobSettings)
+    }
+
+    fun onKnobValueChange(knobIndex: Int, value: Int) {
+        val currentKnobValues = _knobValues.value.toMutableList()
+        currentKnobValues[knobIndex] = value
+        _knobValues.value = currentKnobValues
+        sendMidiMessage(knobIndex, value)
+    }
+
+    private fun sendMidiMessage(knobIndex: Int, value: Int) {
+        val knobSetting = _midiConfig.value.knobSettings.getOrNull(knobIndex) ?: return
+        val sysexString = knobSetting.sysex
+        if (sysexString.isNotBlank()) {
+            // Simple placeholder replacement
+            val finalSysexString = sysexString.replace("vv", "%02x".format(value))
+            val sysexBytes = finalSysexString.split(" ").map { it.toInt(16).toByte() }.toByteArray()
+            targetInputPort?.send(sysexBytes, 0, sysexBytes.size)
+        }
+    }
+
+    fun loadMidiConfig(configName: String) {
+        _midiConfig.value = SettingsManager.loadSettings(context, configName)
+    }
+
+    fun getAvailableConfigs(): List<String> {
+        return SettingsManager.getAvailableConfigs(context)
+    }
+
+    fun saveMidiConfig() {
+        SettingsManager.saveSettings(context, _midiConfig.value)
+    }
+
+    fun updateConfigName(name: String) {
+        _midiConfig.value = _midiConfig.value.copy(configName = name)
+    }
+
+    override fun onCleared() {
+        disconnect()
+        super.onCleared()
     }
 }
