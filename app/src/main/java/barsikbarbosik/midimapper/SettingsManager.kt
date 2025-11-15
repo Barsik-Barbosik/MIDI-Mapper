@@ -9,7 +9,7 @@ import java.io.File
 
 object SettingsManager {
 
-    private fun getSetupsDirectory(context: Context): File {
+    private fun getConfigsDirectory(context: Context): File {
         val directory = context.getExternalFilesDir(null)
         val storageDir = directory ?: context.filesDir
         if (!storageDir.exists()) {
@@ -18,42 +18,42 @@ object SettingsManager {
         return storageDir
     }
 
-    fun saveSettings(context: Context, setup: MidiSetup) {
+    fun saveSettings(context: Context, config: MidiConfig) {
         val json = Json { encodeDefaults = true }
-        val jsonString = json.encodeToString(setup)
-        val setupsDir = getSetupsDirectory(context)
-        val file = File(setupsDir, "${setup.setupName}.json")
+        val jsonString = json.encodeToString(config)
+        val configsDir = getConfigsDirectory(context)
+        val file = File(configsDir, "${config.configName}.json")
         file.writeText(jsonString)
     }
 
-    fun loadSettings(context: Context, fileName: String): MidiSetup {
-        val setupsDir = getSetupsDirectory(context)
-        val file = File(setupsDir, fileName)
+    fun loadSettings(context: Context, fileName: String): MidiConfig {
+        val configsDir = getConfigsDirectory(context)
+        val file = File(configsDir, fileName)
         return if (file.exists()) {
             val json = file.readText()
             if (json.isEmpty()) {
-                return defaultSetup(fileName.removeSuffix(".json"))
+                return defaultConfig(fileName.removeSuffix(".json"))
             }
             try {
-                Json.decodeFromString<MidiSetup>(json)
+                Json.decodeFromString<MidiConfig>(json)
             } catch (e: SerializationException) {
                 e.printStackTrace()
-                defaultSetup(fileName.removeSuffix(".json"))
+                defaultConfig(fileName.removeSuffix(".json"))
             }
         } else {
-            defaultSetup(fileName.removeSuffix(".json"))
+            defaultConfig(fileName.removeSuffix(".json"))
         }
     }
 
-    fun getAvailableSetups(context: Context): List<String> {
-        val setupsDir = getSetupsDirectory(context)
-        return setupsDir.listFiles()
+    fun getAvailableConfigs(context: Context): List<String> {
+        val configsDir = getConfigsDirectory(context)
+        return configsDir.listFiles()
             ?.filter { it.isFile && it.name.endsWith(".json") }
             ?.mapNotNull { file ->
                 try {
                     val json = file.readText()
                     if (json.isNotEmpty()) {
-                        Json.decodeFromString<MidiSetup>(json).setupName
+                        Json.decodeFromString<MidiConfig>(json).configName
                     } else {
                         null
                     }
@@ -64,9 +64,9 @@ object SettingsManager {
             ?: emptyList()
     }
 
-    private fun defaultSetup(setupName: String): MidiSetup {
-        return MidiSetup(
-            setupName = setupName,
+    private fun defaultConfig(configName: String): MidiConfig {
+        return MidiConfig(
+            configName = configName,
             knobSettings = List(20) { i -> KnobSettings("Knob ${i + 1}", 0, 127, "", 0) }
         )
     }
