@@ -32,6 +32,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -50,10 +51,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import barsikbarbosik.midimapper.ui.controls.RotaryKnob
 import kotlinx.serialization.Serializable
@@ -87,9 +88,9 @@ data class MidiConfig(
 @Composable
 fun AppNavigation(
     modifier: Modifier = Modifier,
-    midiViewModel: MidiViewModel = viewModel(factory = MidiViewModelFactory(LocalContext.current))
+    midiViewModel: MidiViewModel = viewModel(factory = MidiViewModelFactory(LocalContext.current)),
+    navController: NavHostController
 ) {
-    val navController = rememberNavController()
     val devices by midiViewModel.devices.collectAsState()
     val midiConfig by midiViewModel.midiConfig.collectAsState()
     val learnedCc by midiViewModel.learnedCc.collectAsState()
@@ -375,18 +376,6 @@ fun DeviceSelectionScreen(
                     Text("Disconnect", color = Color.White)
                 }
             }
-        }
-
-        Button(
-            onClick = { navController.navigate("knobs") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.BottomCenter),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B998B))
-        ) {
-            Icon(Icons.Filled.ArrowForward, contentDescription = "Go to Knobs")
-            Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-            Text("Go to Knobs")
         }
     }
 }
