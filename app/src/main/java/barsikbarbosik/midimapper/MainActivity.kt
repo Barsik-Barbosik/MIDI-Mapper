@@ -20,6 +20,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,6 +47,18 @@ class MainActivity : ComponentActivity() {
             MidiMapperTheme(dynamicColor = false) {
                 val navController = rememberNavController()
                 val currentBackStackEntry by navController.currentBackStackEntryAsState()
+                val midiConfig by viewModel.midiConfig.collectAsState()
+
+                val route = currentBackStackEntry?.destination?.route
+                val pageCount = midiConfig.pages.size
+                val isPage = route?.startsWith("page/") == true
+                val pageIndex = if (isPage) currentBackStackEntry?.arguments?.getInt("pageIndex") else null
+
+                val title = when {
+                    pageIndex != null -> midiConfig.pages.getOrNull(pageIndex)?.name
+                    route != null -> route.replaceFirstChar { it.uppercase() }
+                    else -> ""
+                } ?: ""
 
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
@@ -57,23 +70,43 @@ class MainActivity : ComponentActivity() {
                                         Icon(Icons.Filled.Home, "Home", tint = Color.White)
                                     }
                                     Text(
-                                        text = currentBackStackEntry?.destination?.route?.replaceFirstChar { it.uppercase() }
-                                            ?: "",
+                                        text = title,
                                         modifier = Modifier.weight(1f),
                                         color = Color.White,
                                         textAlign = TextAlign.Center
                                     )
-                                    IconButton(onClick = { navController.navigate("main") }) {
-                                        Icon(Icons.Filled.ArrowBack, "Back", tint = Color.White)
+                                    IconButton(
+                                        onClick = {
+                                            when {
+                                                pageIndex != null && pageIndex > 0 -> navController.navigate("page/${pageIndex - 1}")
+                                                pageIndex == 0 -> navController.navigate("main")
+                                            }
+                                        },
+                                        enabled = pageIndex != null
+                                    ) {
+                                        Icon(
+                                            Icons.Filled.ArrowBack, "Back",
+                                            tint = if (pageIndex != null) Color.White else Color.DarkGray
+                                        )
                                     }
                                     IconButton(
-                                        onClick = { navController.navigate("knobs") },
-                                        enabled = true
+                                        onClick = {
+                                            when {
+                                                pageIndex != null && pageIndex < pageCount - 1 -> navController.navigate(
+                                                    "page/${pageIndex + 1}"
+                                                )
+
+                                                pageIndex == null && route == "main" && pageCount > 0 -> navController.navigate(
+                                                    "page/0"
+                                                )
+                                            }
+                                        },
+                                        enabled = (pageIndex != null && pageIndex < pageCount - 1) || (pageIndex == null && route == "main" && pageCount > 0)
                                     ) {
                                         Icon(
                                             Icons.Filled.ArrowForward,
                                             "Forward",
-                                            tint = Color.White
+                                            tint = if ((pageIndex != null && pageIndex < pageCount - 1) || (pageIndex == null && route == "main" && pageCount > 0)) Color.White else Color.DarkGray
                                         )
                                     }
                                 }

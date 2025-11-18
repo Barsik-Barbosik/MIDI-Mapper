@@ -22,12 +22,12 @@ class MidiViewModel(private val context: Context) : ViewModel() {
     private val _midiConfig = MutableStateFlow(MidiConfig())
     val midiConfig: StateFlow<MidiConfig> = _midiConfig.asStateFlow()
 
-    private val _learningKnobIndex = MutableStateFlow<Int?>(null)
+    private val _learningKnobIndex = MutableStateFlow<Pair<Int, Int>?>(null)
 
     private val _learnedCc = MutableStateFlow<Int?>(null)
     val learnedCc: StateFlow<Int?> = _learnedCc.asStateFlow()
 
-    private val _knobValues = MutableStateFlow(List(20) { 0 })
+    private val _knobValues = MutableStateFlow(emptyList<Int>())
     val knobValues: StateFlow<List<Int>> = _knobValues.asStateFlow()
 
     private val _connectionStatus = MutableStateFlow("Not Connected")
@@ -39,14 +39,17 @@ class MidiViewModel(private val context: Context) : ViewModel() {
     val messageReceiver: MidiReceiver = object : MidiReceiver() {
         override fun onSend(msg: ByteArray, offset: Int, count: Int, timestamp: Long) {
             viewModelScope.launch {
-                val learningIndex = _learningKnobIndex.value
-                if (learningIndex != null) {
+                val learningIndices = _learningKnobIndex.value
+                if (learningIndices != null) {
+                    val (pageIndex, knobIndex) = learningIndices
                     if (msg[offset].toInt() and 0xF0 == 0xB0) { // Control Change
                         val cc = msg[offset + 1].toInt()
                         _learnedCc.value = cc
+                        val currentSettings = _midiConfig.value.pages[pageIndex].knobSettings[knobIndex]
                         updateKnobSetting(
-                            learningIndex,
-                            _midiConfig.value.knobSettings[learningIndex].copy(cc = cc)
+                            pageIndex,
+                            knobIndex,
+                            currentSettings.copy(cc = cc)
                         )
                         _learningKnobIndex.value = null
                     }
@@ -54,9 +57,15 @@ class MidiViewModel(private val context: Context) : ViewModel() {
                     if (msg[offset].toInt() and 0xF0 == 0xB0) { // Control Change
                         val cc = msg[offset + 1].toInt()
                         val value = msg[offset + 2].toInt()
-                        val knobIndex = _midiConfig.value.knobSettings.indexOfFirst { it.cc == cc }
-                        if (knobIndex != -1) {
-                            onKnobValueChange(knobIndex, value)
+                        var knobsBefore = 0
+                        for (page in _midiConfig.value.pages) {
+                            val knobIndexInPage = page.knobSettings.indexOfFirst { it.cc == cc }
+                            if (knobIndexInPage != -1) {
+                                val globalKnobIndex = knobsBefore + knobIndexInPage
+                                onKnobValueChange(globalKnobIndex, value)
+                                break
+                            }
+                            knobsBefore += page.knobSettings.size
                         }
                     }
                 }
@@ -108,31 +117,65 @@ class MidiViewModel(private val context: Context) : ViewModel() {
         _connectionStatus.value = "Not Connected"
     }
 
-    fun startLearning(knobIndex: Int) {
-        _learningKnobIndex.value = knobIndex
+    fun startLearning(pageIndex: Int, knobIndex: Int) {
+        _learningKnobIndex.value = pageIndex to knobIndex
         _learnedCc.value = null
     }
 
-    fun updateKnobSetting(knobIndex: Int, newSettings: KnobSettings) {
+    fun updateKnobSetting(pageIndex: Int, knobIndex: Int, newSettings: KnobSettings) {
         val currentConfig = _midiConfig.value
-        val newKnobSettings = currentConfig.knobSettings.toMutableList()
+        val newPages = currentConfig.pages.toMutableList()
+        val page = newPages.getOrNull(pageIndex) ?: return
+        val newKnobSettings = page.knobSettings.toMutableList()
+
         if (knobIndex >= 0 && knobIndex < newKnobSettings.size) {
             newKnobSettings[knobIndex] = newSettings
-        } else if (knobIndex == newKnobSettings.size) {
-            newKnobSettings.add(newSettings)
+            val newPage = page.copy(knobSettings = newKnobSettings)
+            newPages[pageIndex] = newPage
+            _midiConfig.value = currentConfig.copy(pages = newPages)
         }
-        _midiConfig.value = currentConfig.copy(knobSettings = newKnobSettings)
+    }
+
+    fun addPage() {
+        val currentConfig = _midiConfig.value
+        val newPage = KnobPage(
+            name = "User Page ${currentConfig.pages.size + 1}",
+            knobSettings = List(20) { index ->
+                KnobSettings(
+                    "Knob ${index + 1}",
+                    0,
+                    127,
+                    "",
+                    0,
+                    null
+                )
+            }
+        )
+        _midiConfig.value = currentConfig.copy(pages = currentConfig.pages + newPage)
+        updateKnobValues()
     }
 
     fun onKnobValueChange(knobIndex: Int, value: Int) {
         val currentKnobValues = _knobValues.value.toMutableList()
-        currentKnobValues[knobIndex] = value
-        _knobValues.value = currentKnobValues
-        sendMidiMessage(knobIndex, value)
+        if (knobIndex < currentKnobValues.size) {
+            currentKnobValues[knobIndex] = value
+            _knobValues.value = currentKnobValues
+            sendMidiMessage(knobIndex, value)
+        }
     }
 
     private fun sendMidiMessage(knobIndex: Int, value: Int) {
-        val knobSetting = _midiConfig.value.knobSettings.getOrNull(knobIndex) ?: return
+        var tempKnobIndex = knobIndex
+        var knobSetting: KnobSettings? = null
+        for (page in _midiConfig.value.pages) {
+            if (tempKnobIndex < page.knobSettings.size) {
+                knobSetting = page.knobSettings[tempKnobIndex]
+                break
+            }
+            tempKnobIndex -= page.knobSettings.size
+        }
+
+        if (knobSetting == null) return
         val sysexString = knobSetting.sysex
         if (sysexString.isNotBlank()) {
             // Simple placeholder replacement
@@ -144,6 +187,12 @@ class MidiViewModel(private val context: Context) : ViewModel() {
 
     fun loadMidiConfig(configName: String) {
         _midiConfig.value = SettingsManager.loadSettings(context, configName)
+        updateKnobValues()
+    }
+
+    private fun updateKnobValues() {
+        val totalKnobs = _midiConfig.value.pages.sumOf { it.knobSettings.size }
+        _knobValues.value = List(totalKnobs) { 0 }
     }
 
     fun getAvailableConfigs(): List<String> {

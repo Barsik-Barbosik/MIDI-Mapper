@@ -1,7 +1,6 @@
 package barsikbarbosik.midimapper
 
 import android.content.Context
-import android.os.Environment
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -67,7 +66,21 @@ object SettingsManager {
     private fun defaultConfig(configName: String): MidiConfig {
         return MidiConfig(
             configName = configName,
-            knobSettings = List(20) { i -> KnobSettings("Knob ${i + 1}", 0, 127, "", 0) }
+            pages = listOf(
+                KnobPage(
+                    name = "User Page 1",
+                    knobSettings = List(20) { i ->
+                        KnobSettings(
+                            "Knob ${i + 1}",
+                            0,
+                            127,
+                            "",
+                            0,
+                            null
+                        )
+                    }
+                )
+            )
         )
     }
 }

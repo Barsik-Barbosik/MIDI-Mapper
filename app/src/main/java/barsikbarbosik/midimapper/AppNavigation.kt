@@ -68,18 +68,29 @@ data class KnobSettings(
 )
 
 @Serializable
+data class KnobPage(
+    var name: String,
+    var knobSettings: List<KnobSettings>
+)
+
+@Serializable
 data class MidiConfig(
     var configName: String = "default",
-    var knobSettings: List<KnobSettings> = List(20) { index ->
-        KnobSettings(
-            "Knob ${index + 1}",
-            0,
-            127,
-            "",
-            0,
-            null
+    var pages: List<KnobPage> = listOf(
+        KnobPage(
+            name = "User Page 1",
+            knobSettings = List(20) { index ->
+                KnobSettings(
+                    "Knob ${index + 1}",
+                    0,
+                    127,
+                    "",
+                    0,
+                    null
+                )
+            }
         )
-    }
+    )
 )
 
 
@@ -95,6 +106,12 @@ fun AppNavigation(
     val knobValues by midiViewModel.knobValues.collectAsState()
     val connectionStatus by midiViewModel.connectionStatus.collectAsState()
 
+    // The following methods on midiViewModel will need to be updated or created:
+    // - fun addPage()
+    // - fun updateKnobSetting(pageIndex: Int, knobIndex: Int, newSettings: KnobSettings)
+    // - fun startLearning(pageIndex: Int, knobIndex: Int)
+    // The signature of onKnobValueChange can remain the same if using a global index.
+
     NavHost(navController = navController, startDestination = "main", modifier = modifier) {
         composable("main") {
             MainScreen(
@@ -107,32 +124,50 @@ fun AppNavigation(
                 onConfigNameChange = { midiViewModel.updateConfigName(it) },
                 onSaveConfig = { midiViewModel.saveMidiConfig() },
                 onLoadConfig = { midiViewModel.loadMidiConfig(it) },
-                getAvailableConfigs = { midiViewModel.getAvailableConfigs() }
-            )
-        }
-        composable("knobs") {
-            KnobsScreen(
-                knobValues = knobValues,
-                knobSettings = midiConfig.knobSettings,
-                onKnobValueChange = { index, value ->
-                    midiViewModel.onKnobValueChange(
-                        index,
-                        value
-                    )
-                },
-                navController = navController
+                getAvailableConfigs = { midiViewModel.getAvailableConfigs() },
+                onAddPage = { midiViewModel.addPage() }
             )
         }
         composable(
-            "knob-settings/{index}",
-            arguments = listOf(navArgument("index") { type = NavType.IntType })
+            "page/{pageIndex}",
+            arguments = listOf(navArgument("pageIndex") { type = NavType.IntType })
         ) { backStackEntry ->
-            val index = backStackEntry.arguments?.getInt("index")
-            if (index != null) {
+            val pageIndex = backStackEntry.arguments?.getInt("pageIndex")
+            if (pageIndex != null) {
+                val page = midiConfig.pages.getOrNull(pageIndex)
+                if (page != null) {
+                    val knobsBefore = midiConfig.pages.take(pageIndex).sumOf { it.knobSettings.size }
+                    val pageKnobValues = knobValues.drop(knobsBefore).take(page.knobSettings.size)
+                    KnobsScreen(
+                        pageIndex = pageIndex,
+                        knobValues = pageKnobValues,
+                        knobSettings = page.knobSettings,
+                        onKnobValueChange = { index, value ->
+                            val globalKnobIndex = knobsBefore + index
+                            midiViewModel.onKnobValueChange(
+                                globalKnobIndex,
+                                value
+                            )
+                        },
+                        navController = navController
+                    )
+                }
+            }
+        }
+        composable(
+            "page/{pageIndex}/knob-settings/{knobIndex}",
+            arguments = listOf(
+                navArgument("pageIndex") { type = NavType.IntType },
+                navArgument("knobIndex") { type = NavType.IntType }
+            )
+        ) { backStackEntry ->
+            val pageIndex = backStackEntry.arguments?.getInt("pageIndex")
+            val knobIndex = backStackEntry.arguments?.getInt("knobIndex")
+            if (pageIndex != null && knobIndex != null) {
                 KnobSettingsScreen(
                     navController = navController,
-                    knobIndex = index,
-                    knobSetting = midiConfig.knobSettings.getOrElse(index) {
+                    knobIndex = knobIndex,
+                    knobSetting = midiConfig.pages.getOrNull(pageIndex)?.knobSettings?.getOrElse(knobIndex) {
                         KnobSettings(
                             "",
                             0,
@@ -141,11 +176,18 @@ fun AppNavigation(
                             0,
                             null
                         )
-                    },
+                    } ?: KnobSettings(
+                        "",
+                        0,
+                        127,
+                        "",
+                        0,
+                        null
+                    ),
                     onSave = { newSettings ->
-                        midiViewModel.updateKnobSetting(index, newSettings)
+                        midiViewModel.updateKnobSetting(pageIndex, knobIndex, newSettings)
                     },
-                    onStartLearning = { midiViewModel.startLearning(index) },
+                    onStartLearning = { midiViewModel.startLearning(pageIndex, it) },
                     learnedCc = learnedCc
                 )
             }
@@ -165,7 +207,8 @@ fun MainScreen(
     onConfigNameChange: (String) -> Unit,
     onSaveConfig: () -> Unit,
     onLoadConfig: (String) -> Unit,
-    getAvailableConfigs: () -> List<String>
+    getAvailableConfigs: () -> List<String>,
+    onAddPage: () -> Unit
 ) {
     var expandedSource by remember { mutableStateOf(false) }
     var expandedTarget by remember { mutableStateOf(false) }
@@ -242,6 +285,28 @@ fun MainScreen(
                         }
                     }
                 }
+            }
+
+            Divider()
+
+            Text(
+                "Pages",
+                style = MaterialTheme.typography.titleMedium
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                midiConfig.pages.forEachIndexed { index, page ->
+                    Button(onClick = { navController.navigate("page/$index") }) {
+                        Text(page.name)
+                    }
+                }
+            }
+
+            Button(onClick = onAddPage) {
+                Text("Add New Page")
             }
 
             Divider()
@@ -380,6 +445,7 @@ fun MainScreen(
 
 @Composable
 fun KnobsScreen(
+    pageIndex: Int,
     knobValues: List<Int>,
     knobSettings: List<KnobSettings>,
     onKnobValueChange: (Int, Int) -> Unit,
@@ -409,7 +475,7 @@ fun KnobsScreen(
                             detectTapGestures(
                                 onLongPress = {
                                     if (isConfigurable) {
-                                        navController.navigate("knob-settings/$index")
+                                        navController.navigate("page/$pageIndex/knob-settings/$index")
                                     }
                                 }
                             )
@@ -496,7 +562,7 @@ fun KnobSettingsScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("Configure Knob $knobIndex", style = MaterialTheme.typography.titleMedium)
+        Text("Configure Knob ${knobIndex + 1}", style = MaterialTheme.typography.titleMedium)
 
         TextField(
             value = knobName,
