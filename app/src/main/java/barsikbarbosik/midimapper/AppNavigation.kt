@@ -11,15 +11,17 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.LinkOff
+import androidx.compose.material.icons.filled.NoteAdd
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Tune
@@ -136,7 +138,8 @@ fun AppNavigation(
             if (pageIndex != null) {
                 val page = midiConfig.pages.getOrNull(pageIndex)
                 if (page != null) {
-                    val knobsBefore = midiConfig.pages.take(pageIndex).sumOf { it.knobSettings.size }
+                    val knobsBefore =
+                        midiConfig.pages.take(pageIndex).sumOf { it.knobSettings.size }
                     val pageKnobValues = knobValues.drop(knobsBefore).take(page.knobSettings.size)
                     KnobsScreen(
                         pageIndex = pageIndex,
@@ -167,7 +170,9 @@ fun AppNavigation(
                 KnobSettingsScreen(
                     navController = navController,
                     knobIndex = knobIndex,
-                    knobSetting = midiConfig.pages.getOrNull(pageIndex)?.knobSettings?.getOrElse(knobIndex) {
+                    knobSetting = midiConfig.pages.getOrNull(pageIndex)?.knobSettings?.getOrElse(
+                        knobIndex
+                    ) {
                         KnobSettings(
                             "",
                             0,
@@ -229,7 +234,7 @@ fun MainScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
-                "Configuration",
+                "Save/Load Configuration",
                 style = MaterialTheme.typography.titleMedium
             )
 
@@ -285,28 +290,6 @@ fun MainScreen(
                         }
                     }
                 }
-            }
-
-            Divider()
-
-            Text(
-                "Pages",
-                style = MaterialTheme.typography.titleMedium
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                midiConfig.pages.forEachIndexed { index, page ->
-                    Button(onClick = { navController.navigate("page/$index") }) {
-                        Text(page.name)
-                    }
-                }
-            }
-
-            Button(onClick = onAddPage) {
-                Text("Add New Page")
             }
 
             Divider()
@@ -439,6 +422,30 @@ fun MainScreen(
                     Text("Disconnect", color = Color.White)
                 }
             }
+
+            Divider()
+
+            Text(
+                "Pages",
+                style = MaterialTheme.typography.titleMedium
+            )
+
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                itemsIndexed(midiConfig.pages) { index, page ->
+                    Button(onClick = { navController.navigate("page/$index") }) {
+                        Text(page.name)
+                    }
+                }
+            }
+
+            Button(onClick = onAddPage) {
+                Icon(Icons.Filled.NoteAdd, "Add New User Page")
+                Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                Text("Add New User Page")
+            }
         }
     }
 }
@@ -518,16 +525,6 @@ fun KnobsScreen(
                     Spacer(Modifier.size(ButtonDefaults.IconSpacing))
                     Text("Configure")
                 }
-            }
-            Button(
-                onClick = { navController.popBackStack() },
-                modifier = Modifier
-                    .fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B998B))
-            ) {
-                Icon(Icons.Filled.ArrowBack, "Back")
-                Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-                Text("Back")
             }
         }
     }
