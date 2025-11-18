@@ -1,6 +1,5 @@
 package barsikbarbosik.midimapper
 
-import android.graphics.Color as AndroidColor
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -29,6 +28,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import barsikbarbosik.midimapper.ui.theme.MidiMapperTheme
+import android.graphics.Color as AndroidColor
 
 class MainActivity : ComponentActivity() {
     private val viewModel by viewModels<MidiViewModel> { MidiViewModelFactory(this) }
@@ -53,16 +53,17 @@ class MainActivity : ComponentActivity() {
                         TopAppBar(
                             title = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    IconButton(onClick = { navController.navigate("devices") }) {
+                                    IconButton(onClick = { navController.navigate("main") }) {
                                         Icon(Icons.Filled.Home, "Home", tint = Color.White)
                                     }
                                     Text(
-                                        text = currentBackStackEntry?.destination?.route?.replaceFirstChar { it.uppercase() } ?: "",
+                                        text = currentBackStackEntry?.destination?.route?.replaceFirstChar { it.uppercase() }
+                                            ?: "",
                                         modifier = Modifier.weight(1f),
                                         color = Color.White,
                                         textAlign = TextAlign.Center
                                     )
-                                    IconButton(onClick = { navController.navigate("devices") }) {
+                                    IconButton(onClick = { navController.navigate("main") }) {
                                         Icon(Icons.Filled.ArrowBack, "Back", tint = Color.White)
                                     }
                                     IconButton(
