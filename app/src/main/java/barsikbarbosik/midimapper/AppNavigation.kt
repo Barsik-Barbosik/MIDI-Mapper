@@ -107,6 +107,7 @@ fun AppNavigation(
     val learnedCc by midiViewModel.learnedCc.collectAsState()
     val knobValues by midiViewModel.knobValues.collectAsState()
     val connectionStatus by midiViewModel.connectionStatus.collectAsState()
+    val receivedMidiMessages by midiViewModel.receivedMidiMessages.collectAsState()
 
     // The following methods on midiViewModel will need to be updated or created:
     // - fun addPage()
@@ -119,7 +120,7 @@ fun AppNavigation(
             MainScreen(
                 devices = devices,
                 connectionStatus = connectionStatus,
-                onConnect = { source, target -> midiViewModel.connect(source, target) },
+                onConnect = midiViewModel::connect,
                 onDisconnect = { midiViewModel.disconnect() },
                 navController = navController,
                 midiConfig = midiConfig,
@@ -127,7 +128,8 @@ fun AppNavigation(
                 onSaveConfig = { midiViewModel.saveMidiConfig() },
                 onLoadConfig = { midiViewModel.loadMidiConfig(it) },
                 getAvailableConfigs = { midiViewModel.getAvailableConfigs() },
-                onAddPage = { midiViewModel.addPage() }
+                onAddPage = { midiViewModel.addPage() },
+                receivedMidiMessages = receivedMidiMessages
             )
         }
         composable(
@@ -213,7 +215,8 @@ fun MainScreen(
     onSaveConfig: () -> Unit,
     onLoadConfig: (String) -> Unit,
     getAvailableConfigs: () -> List<String>,
-    onAddPage: () -> Unit
+    onAddPage: () -> Unit,
+    receivedMidiMessages: String
 ) {
     var expandedSource by remember { mutableStateOf(false) }
     var expandedTarget by remember { mutableStateOf(false) }
@@ -299,105 +302,109 @@ fun MainScreen(
                 style = MaterialTheme.typography.titleMedium
             )
 
-            ExposedDropdownMenuBox(
-                expanded = expandedSource && !isConnected,
-                onExpandedChange = {
-                    if (!isConnected) expandedSource = !expandedSource
-                }
-            ) {
+            if (isConnected) {
                 TextField(
-                    value = selectedSource?.properties?.getString(MidiDeviceInfo.PROPERTY_NAME)
-                        ?: "Select source",
+                    value = receivedMidiMessages,
                     onValueChange = {},
                     readOnly = true,
-                    enabled = !isConnected,
-                    label = { Text("Source") },
-                    trailingIcon = {
-                        ExposedDropdownMenuDefaults.TrailingIcon(
-                            expanded = expandedSource && !isConnected
-                        )
-                    },
-                    modifier = Modifier
-                        .menuAnchor()
-                        .fillMaxWidth()
+                    label = { Text("Received MIDI Messages") },
+                    modifier = Modifier.fillMaxWidth()
                 )
-                ExposedDropdownMenu(
-                    expanded = expandedSource && !isConnected,
-                    onDismissRequest = { expandedSource = false }
+            } else {
+                ExposedDropdownMenuBox(
+                    expanded = expandedSource,
+                    onExpandedChange = { expandedSource = !expandedSource }
                 ) {
-                    devices.forEach { device ->
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    device.properties.getString(MidiDeviceInfo.PROPERTY_NAME)
-                                        ?: "Unknown"
-                                )
-                            },
-                            onClick = {
-                                selectedSource = device
-                                expandedSource = false
-                            }
-                        )
+                    TextField(
+                        value = selectedSource?.properties?.getString(MidiDeviceInfo.PROPERTY_NAME)
+                            ?: "Select source",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Source") },
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(
+                                expanded = expandedSource
+                            )
+                        },
+                        modifier = Modifier
+                            .menuAnchor()
+                            .fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expandedSource,
+                        onDismissRequest = { expandedSource = false }
+                    ) {
+                        devices.forEach { device ->
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        device.properties.getString(MidiDeviceInfo.PROPERTY_NAME)
+                                            ?: "Unknown"
+                                    )
+                                },
+                                onClick = {
+                                    selectedSource = device
+                                    expandedSource = false
+                                }
+                            )
+                        }
                     }
                 }
-            }
 
-            ExposedDropdownMenuBox(
-                expanded = expandedTarget && !isConnected,
-                onExpandedChange = {
-                    if (!isConnected) expandedTarget = !expandedTarget
+                ExposedDropdownMenuBox(
+                    expanded = expandedTarget,
+                    onExpandedChange = { expandedTarget = !expandedTarget }
+                ) {
+                    TextField(
+                        value = selectedTarget?.properties?.getString(MidiDeviceInfo.PROPERTY_NAME)
+                            ?: "Select target",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Target") },
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(
+                                expanded = expandedTarget
+                            )
+                        },
+                        modifier = Modifier
+                            .menuAnchor()
+                            .fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expandedTarget,
+                        onDismissRequest = { expandedTarget = false }
+                    ) {
+                        devices.forEach { device ->
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        device.properties.getString(MidiDeviceInfo.PROPERTY_NAME)
+                                            ?: "Unknown"
+                                    )
+                                },
+                                onClick = {
+                                    selectedTarget = device
+                                    expandedTarget = false
+                                }
+                            )
+                        }
+                    }
                 }
-            ) {
-                TextField(
-                    value = selectedTarget?.properties?.getString(MidiDeviceInfo.PROPERTY_NAME)
-                        ?: "Select target",
-                    onValueChange = {},
-                    readOnly = true,
-                    enabled = !isConnected,
-                    label = { Text("Target") },
-                    trailingIcon = {
-                        ExposedDropdownMenuDefaults.TrailingIcon(
-                            expanded = expandedTarget && !isConnected
-                        )
+
+                Button(
+                    onClick = {
+                        if (selectedSource != null && selectedTarget != null) {
+                            onConnect(selectedSource!!, selectedTarget!!)
+                        }
                     },
-                    modifier = Modifier
-                        .menuAnchor()
-                        .fillMaxWidth()
-                )
-                ExposedDropdownMenu(
-                    expanded = expandedTarget && !isConnected,
-                    onDismissRequest = { expandedTarget = false }
+                    enabled = selectedSource != null && selectedTarget != null,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B998B))
                 ) {
-                    devices.forEach { device ->
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    device.properties.getString(MidiDeviceInfo.PROPERTY_NAME)
-                                        ?: "Unknown"
-                                )
-                            },
-                            onClick = {
-                                selectedTarget = device
-                                expandedTarget = false
-                            }
-                        )
-                    }
+                    Icon(Icons.Filled.Link, contentDescription = "Connect")
+                    Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                    Text("Connect")
                 }
-            }
-
-            Button(
-                onClick = {
-                    if (selectedSource != null && selectedTarget != null) {
-                        onConnect(selectedSource!!, selectedTarget!!)
-                    }
-                },
-                enabled = selectedSource != null && selectedTarget != null && !isConnected,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B998B))
-            ) {
-                Icon(Icons.Filled.Link, contentDescription = "Connect")
-                Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-                Text("Connect")
             }
 
             Divider()

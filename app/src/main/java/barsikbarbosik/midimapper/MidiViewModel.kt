@@ -33,19 +33,27 @@ class MidiViewModel(private val context: Context) : ViewModel() {
     private val _connectionStatus = MutableStateFlow("Not Connected")
     val connectionStatus: StateFlow<String> = _connectionStatus.asStateFlow()
 
+    private val _receivedMidiMessages = MutableStateFlow("")
+    val receivedMidiMessages: StateFlow<String> = _receivedMidiMessages.asStateFlow()
+
     private var sourceOutputPort: MidiOutputPort? = null
     private var targetInputPort: MidiInputPort? = null
 
     val messageReceiver: MidiReceiver = object : MidiReceiver() {
         override fun onSend(msg: ByteArray, offset: Int, count: Int, timestamp: Long) {
             viewModelScope.launch {
+                _receivedMidiMessages.value =
+                    msg.sliceArray(offset until offset + count)
+                        .joinToString(" ") { "%02X".format(it) }
+
                 val learningIndices = _learningKnobIndex.value
                 if (learningIndices != null) {
                     val (pageIndex, knobIndex) = learningIndices
                     if (msg[offset].toInt() and 0xF0 == 0xB0) { // Control Change
                         val cc = msg[offset + 1].toInt()
                         _learnedCc.value = cc
-                        val currentSettings = _midiConfig.value.pages[pageIndex].knobSettings[knobIndex]
+                        val currentSettings =
+                            _midiConfig.value.pages[pageIndex].knobSettings[knobIndex]
                         updateKnobSetting(
                             pageIndex,
                             knobIndex,
@@ -98,7 +106,7 @@ class MidiViewModel(private val context: Context) : ViewModel() {
             val framer = MidiFramer(messageReceiver)
             sourceOutputPort?.connect(framer)
             _connectionStatus.value =
-                "Connected to ${sourceDevice.properties.getString(MidiDeviceInfo.PROPERTY_NAME)} and ${
+                "Connected source:\n${sourceDevice.properties.getString(MidiDeviceInfo.PROPERTY_NAME)}\nConnected target:\n${
                     targetDevice.properties.getString(MidiDeviceInfo.PROPERTY_NAME)
                 }"
         }, null)
