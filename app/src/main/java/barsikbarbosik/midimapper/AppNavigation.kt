@@ -255,8 +255,7 @@ fun MainScreen(
             ) {
                 Button(
                     onClick = onSaveConfig,
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B998B))
+                    modifier = Modifier.weight(1f)
                 ) {
                     Icon(Icons.Filled.Save, contentDescription = "Save")
                     Spacer(Modifier.size(ButtonDefaults.IconSpacing))
@@ -271,8 +270,7 @@ fun MainScreen(
                         onClick = { expandedConfigs = true },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .menuAnchor(),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B998B))
+                            .menuAnchor()
                     ) {
                         Icon(Icons.Filled.FolderOpen, contentDescription = "Load")
                         Spacer(Modifier.size(ButtonDefaults.IconSpacing))
@@ -398,8 +396,7 @@ fun MainScreen(
                         }
                     },
                     enabled = selectedSource != null && selectedTarget != null,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B998B))
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Icon(Icons.Filled.Link, contentDescription = "Connect")
                     Spacer(Modifier.size(ButtonDefaults.IconSpacing))
@@ -520,7 +517,7 @@ fun KnobsScreen(
                 colors = ButtonDefaults.buttonColors(
                     containerColor = if (isConfigurable) Color(
                         0xFFF44336
-                    ) else Color(0xFF1B998B)
+                    ) else MaterialTheme.colorScheme.primary
                 )
             ) {
                 if (isConfigurable) {
@@ -617,8 +614,7 @@ fun KnobSettingsScreen(
 
         Button(
             onClick = { onStartLearning(knobIndex) },
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B998B))
+            modifier = Modifier.fillMaxWidth()
         ) {
             Icon(Icons.Filled.Sensors, "Learn")
             Spacer(Modifier.size(ButtonDefaults.IconSpacing))
@@ -644,8 +640,7 @@ fun KnobSettingsScreen(
                     onSave(newSettings)
                     navController.popBackStack()
                 },
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B998B))
+                modifier = Modifier.weight(1f)
             ) {
                 Icon(Icons.Filled.Save, "Save")
                 Spacer(Modifier.size(ButtonDefaults.IconSpacing))

@@ -2,6 +2,8 @@ package barsikbarbosik.midimapper.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
+val MidiGreen = Color(0xFF1B998B)
+
 val Teal80 = Color(0xFF66D9C8)
 val TealGrey80 = Color(0xFF627B77)
 val Pink80 = Color(0xFFEFB8C8)
