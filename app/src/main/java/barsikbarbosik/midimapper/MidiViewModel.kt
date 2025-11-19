@@ -61,20 +61,42 @@ class MidiViewModel(private val context: Context) : ViewModel() {
                         )
                         _learningKnobIndex.value = null
                     }
-                } else {
-                    if (msg[offset].toInt() and 0xF0 == 0xB0) { // Control Change
+                } else { // Not in learning mode
+                    val statusByte = msg[offset].toInt() and 0xFF
+                    var forwardedAutomatically = true // Flag to determine if the message was forwarded
+                    
+                    if ((statusByte and 0xF0) == 0xB0) { // It's a Control Change message
                         val cc = msg[offset + 1].toInt()
                         val value = msg[offset + 2].toInt()
-                        var knobsBefore = 0
-                        for (page in _midiConfig.value.pages) {
-                            val knobIndexInPage = page.knobSettings.indexOfFirst { it.cc == cc }
-                            if (knobIndexInPage != -1) {
-                                val globalKnobIndex = knobsBefore + knobIndexInPage
-                                onKnobValueChange(globalKnobIndex, value)
-                                break
+
+                        var globalKnobIndex = 0
+                        var knobFoundAndSysexHandled = false
+
+                        // Search for a mapped knob with a SysEx string
+                        for (pageIndex in _midiConfig.value.pages.indices) {
+                            val page = _midiConfig.value.pages[pageIndex]
+                            for (knobIndexInPage in page.knobSettings.indices) {
+                                val knobSetting = page.knobSettings[knobIndexInPage]
+                                if (knobSetting.cc == cc) {
+                                    if (knobSetting.sysex.isNotBlank()) {
+                                        // This CC is mapped to a SysEx. Handle it via onKnobValueChange.
+                                        onKnobValueChange(globalKnobIndex, value)
+                                        knobFoundAndSysexHandled = true
+                                        forwardedAutomatically = false // Don't forward the original CC
+                                    }
+                                    break // Found the knob, no need to check other knobs on this page or subsequent pages for this CC.
+                                }
+                                globalKnobIndex++
                             }
-                            knobsBefore += page.knobSettings.size
+                            if (knobFoundAndSysexHandled) {
+                                break // Knob found and SysEx handled, exit page loop
+                            }
                         }
+                    }
+
+                    // If the message was not a SysEx-mapped CC, or if it was not a CC at all, forward it directly.
+                    if (forwardedAutomatically) {
+                        targetInputPort?.send(msg, offset, count, timestamp)
                     }
                 }
             }
