@@ -33,8 +33,8 @@ class MidiViewModel(private val context: Context) : ViewModel() {
     private val _connectionStatus = MutableStateFlow("Not Connected")
     val connectionStatus: StateFlow<String> = _connectionStatus.asStateFlow()
 
-    private val _receivedMidiMessages = MutableStateFlow("")
-    val receivedMidiMessages: StateFlow<String> = _receivedMidiMessages.asStateFlow()
+    private val _receivedMidiMessages = MutableStateFlow<List<String>>(emptyList())
+    val receivedMidiMessages: StateFlow<List<String>> = _receivedMidiMessages.asStateFlow()
 
     private var sourceOutputPort: MidiOutputPort? = null
     private var targetInputPort: MidiInputPort? = null
@@ -42,9 +42,14 @@ class MidiViewModel(private val context: Context) : ViewModel() {
     val messageReceiver: MidiReceiver = object : MidiReceiver() {
         override fun onSend(msg: ByteArray, offset: Int, count: Int, timestamp: Long) {
             viewModelScope.launch {
-                _receivedMidiMessages.value =
-                    msg.sliceArray(offset until offset + count)
-                        .joinToString(" ") { "%02X".format(it) }
+                val newMessage = msg.sliceArray(offset until offset + count)
+                    .joinToString(" ") { "%02X".format(it) }
+                val currentMessages = _receivedMidiMessages.value.toMutableList()
+                currentMessages.add(newMessage)
+                if (currentMessages.size > 5) {
+                    currentMessages.removeAt(0)
+                }
+                _receivedMidiMessages.value = currentMessages
 
                 val learningIndices = _learningKnobIndex.value
                 if (learningIndices != null) {
@@ -70,26 +75,31 @@ class MidiViewModel(private val context: Context) : ViewModel() {
                         val value = msg[offset + 2].toInt()
 
                         var globalKnobIndex = 0
-                        var knobFoundAndSysexHandled = false
+                        var knobFound = false // Changed from knobFoundAndSysexHandled
 
-                        // Search for a mapped knob with a SysEx string
+                        // Search for a mapped knob
                         for (pageIndex in _midiConfig.value.pages.indices) {
                             val page = _midiConfig.value.pages[pageIndex]
                             for (knobIndexInPage in page.knobSettings.indices) {
                                 val knobSetting = page.knobSettings[knobIndexInPage]
                                 if (knobSetting.cc == cc) {
+                                    // Found a mapped knob for the incoming CC
+                                    onKnobValueChange(globalKnobIndex, value) // Update value and send SysEx if applicable
+
                                     if (knobSetting.sysex.isNotBlank()) {
-                                        // This CC is mapped to a SysEx. Handle it via onKnobValueChange.
-                                        onKnobValueChange(globalKnobIndex, value)
-                                        knobFoundAndSysexHandled = true
-                                        forwardedAutomatically = false // Don't forward the original CC
+                                        // If SysEx was sent by onKnobValueChange, don't forward the original CC.
+                                        forwardedAutomatically = false
+                                    } else {
+                                        // If no SysEx was sent, then the original CC should be forwarded.
+                                        forwardedAutomatically = true
                                     }
-                                    break // Found the knob, no need to check other knobs on this page or subsequent pages for this CC.
+                                    knobFound = true
+                                    break // Found the knob, no need to check other knobs
                                 }
                                 globalKnobIndex++
                             }
-                            if (knobFoundAndSysexHandled) {
-                                break // Knob found and SysEx handled, exit page loop
+                            if (knobFound) {
+                                break // Knob found, exit page loop
                             }
                         }
                     }

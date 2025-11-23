@@ -216,7 +216,7 @@ fun MainScreen(
     onLoadConfig: (String) -> Unit,
     getAvailableConfigs: () -> List<String>,
     onAddPage: () -> Unit,
-    receivedMidiMessages: String
+    receivedMidiMessages: List<String>
 ) {
     var expandedSource by remember { mutableStateOf(false) }
     var expandedTarget by remember { mutableStateOf(false) }
@@ -302,11 +302,14 @@ fun MainScreen(
 
             if (isConnected) {
                 TextField(
-                    value = receivedMidiMessages,
+                    value = receivedMidiMessages.joinToString("\n"),
                     onValueChange = {},
                     readOnly = true,
                     label = { Text("Received MIDI Messages") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    textStyle = MaterialTheme.typography.bodySmall,
+                    minLines = 5,
+                    maxLines = 5
                 )
             } else {
                 ExposedDropdownMenuBox(
@@ -408,22 +411,22 @@ fun MainScreen(
 
             Text(
                 text = connectionStatus,
-                color = if (isConnected) Color(0xFF2E7D32) else Color(0xFFC62828)
+                color = if (isConnected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
             )
 
             if (isConnected) {
                 Button(
                     onClick = onDisconnect,
                     modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828))
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
                     Icon(
                         Icons.Filled.LinkOff,
                         contentDescription = "Disconnect",
-                        tint = Color.White
+                        tint = MaterialTheme.colorScheme.onError
                     )
                     Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-                    Text("Disconnect", color = Color.White)
+                    Text("Disconnect", color = MaterialTheme.colorScheme.onError)
                 }
             }
 
@@ -515,9 +518,7 @@ fun KnobsScreen(
                 onClick = { isConfigurable = !isConfigurable },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isConfigurable) Color(
-                        0xFFF44336
-                    ) else MaterialTheme.colorScheme.primary
+                    containerColor = if (isConfigurable) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                 )
             ) {
                 if (isConfigurable) {
@@ -649,11 +650,11 @@ fun KnobSettingsScreen(
             Button(
                 onClick = { navController.popBackStack() },
                 modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF44336))
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
             ) {
-                Icon(Icons.Filled.Cancel, "Cancel", tint = Color.White)
+                Icon(Icons.Filled.Cancel, "Cancel", tint = MaterialTheme.colorScheme.onError)
                 Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-                Text("Cancel", color = Color.White)
+                Text("Cancel", color = MaterialTheme.colorScheme.onError)
             }
         }
     }
