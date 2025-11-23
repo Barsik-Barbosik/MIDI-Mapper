@@ -8,6 +8,7 @@ import android.media.midi.MidiOutputPort
 import android.media.midi.MidiReceiver
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -38,9 +39,13 @@ class MidiViewModel(private val context: Context) : ViewModel() {
 
     private var sourceOutputPort: MidiOutputPort? = null
     private var targetInputPort: MidiInputPort? = null
+    @Volatile
+    private var ignoringMidi = false
 
     val messageReceiver: MidiReceiver = object : MidiReceiver() {
         override fun onSend(msg: ByteArray, offset: Int, count: Int, timestamp: Long) {
+            if (ignoringMidi) return
+
             viewModelScope.launch {
                 val newMessage = msg.sliceArray(offset until offset + count)
                     .joinToString(" ") { "%02X".format(it) }
@@ -132,6 +137,7 @@ class MidiViewModel(private val context: Context) : ViewModel() {
     }
 
     fun connect(sourceDevice: MidiDeviceInfo, targetDevice: MidiDeviceInfo) {
+        ignoringMidi = true
         val sourcePort = sourceDevice.ports.first { it.type == MidiDeviceInfo.PortInfo.TYPE_OUTPUT }
         midiManager.openDevice(sourceDevice, { device ->
             sourceOutputPort = device.openOutputPort(sourcePort.portNumber)
@@ -147,6 +153,11 @@ class MidiViewModel(private val context: Context) : ViewModel() {
         midiManager.openDevice(targetDevice, { device ->
             targetInputPort = device.openInputPort(targetPort.portNumber)
         }, null)
+
+        viewModelScope.launch {
+            delay(500) // Ignore midi messages for 500ms
+            ignoringMidi = false
+        }
     }
 
     fun disconnect() {

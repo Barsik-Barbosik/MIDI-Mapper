@@ -301,6 +301,27 @@ fun MainScreen(
             )
 
             if (isConnected) {
+                Text(
+                    text = connectionStatus,
+                    color = if (isConnected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                )
+
+                if (isConnected) {
+                    Button(
+                        onClick = onDisconnect,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Icon(
+                            Icons.Filled.LinkOff,
+                            contentDescription = "Disconnect",
+                            tint = MaterialTheme.colorScheme.onError
+                        )
+                        Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                        Text("Disconnect", color = MaterialTheme.colorScheme.onError)
+                    }
+                }
+
                 TextField(
                     value = receivedMidiMessages.joinToString("\n"),
                     onValueChange = {},
@@ -404,29 +425,6 @@ fun MainScreen(
                     Icon(Icons.Filled.Link, contentDescription = "Connect")
                     Spacer(Modifier.size(ButtonDefaults.IconSpacing))
                     Text("Connect")
-                }
-            }
-
-            Divider()
-
-            Text(
-                text = connectionStatus,
-                color = if (isConnected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-            )
-
-            if (isConnected) {
-                Button(
-                    onClick = onDisconnect,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Icon(
-                        Icons.Filled.LinkOff,
-                        contentDescription = "Disconnect",
-                        tint = MaterialTheme.colorScheme.onError
-                    )
-                    Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-                    Text("Disconnect", color = MaterialTheme.colorScheme.onError)
                 }
             }
 
