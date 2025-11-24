@@ -6,6 +6,7 @@ import android.media.midi.MidiInputPort
 import android.media.midi.MidiManager
 import android.media.midi.MidiOutputPort
 import android.media.midi.MidiReceiver
+import android.os.PowerManager // Added import
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.delay
@@ -16,6 +17,8 @@ import kotlinx.coroutines.launch
 
 class MidiViewModel(private val context: Context) : ViewModel() {
     private val midiManager = context.getSystemService(Context.MIDI_SERVICE) as MidiManager
+    private val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager // Added PowerManager
+    private lateinit var wakeLock: PowerManager.WakeLock // Added WakeLock
 
     private val _devices = MutableStateFlow<List<MidiDeviceInfo>>(emptyList())
     val devices: StateFlow<List<MidiDeviceInfo>> = _devices.asStateFlow()
@@ -125,6 +128,8 @@ class MidiViewModel(private val context: Context) : ViewModel() {
     }
 
     init {
+        wakeLock = powerManager.newWakeLock(PowerManager.SCREEN_DIM_WAKE_LOCK, "MidiMapper::MidiWakeLock") // Initialized WakeLock
+
         _devices.value = midiManager.devices.toList()
 
         midiManager.registerDeviceCallback(object : MidiManager.DeviceCallback() {
@@ -160,6 +165,10 @@ class MidiViewModel(private val context: Context) : ViewModel() {
             targetInputPort = device.openInputPort(targetPort.portNumber)
         }, null)
 
+        if (!wakeLock.isHeld) { // Acquire WakeLock on connect
+            wakeLock.acquire()
+        }
+
         viewModelScope.launch {
             delay(500) // Ignore midi messages for 500ms
             ignoringMidi = false
@@ -172,6 +181,9 @@ class MidiViewModel(private val context: Context) : ViewModel() {
         sourceOutputPort = null
         targetInputPort = null
         _connectionStatus.value = "Not Connected"
+        if (wakeLock.isHeld) { // Release WakeLock on disconnect
+            wakeLock.release()
+        }
     }
 
     fun startLearning(pageIndex: Int, knobIndex: Int) {
@@ -280,5 +292,8 @@ class MidiViewModel(private val context: Context) : ViewModel() {
     override fun onCleared() {
         disconnect()
         super.onCleared()
+        if (wakeLock.isHeld) { // Release WakeLock when ViewModel is cleared
+            wakeLock.release()
+        }
     }
 }
