@@ -20,6 +20,12 @@ class MidiViewModel(private val context: Context) : ViewModel() {
     private val _devices = MutableStateFlow<List<MidiDeviceInfo>>(emptyList())
     val devices: StateFlow<List<MidiDeviceInfo>> = _devices.asStateFlow()
 
+    private val _selectedSourceDevice = MutableStateFlow<MidiDeviceInfo?>(null)
+    val selectedSourceDevice: StateFlow<MidiDeviceInfo?> = _selectedSourceDevice.asStateFlow()
+
+    private val _selectedTargetDevice = MutableStateFlow<MidiDeviceInfo?>(null)
+    val selectedTargetDevice: StateFlow<MidiDeviceInfo?> = _selectedTargetDevice.asStateFlow()
+
     private val _midiConfig = MutableStateFlow(MidiConfig())
     val midiConfig: StateFlow<MidiConfig> = _midiConfig.asStateFlow()
 
@@ -132,7 +138,7 @@ class MidiViewModel(private val context: Context) : ViewModel() {
         }, null)
 
         viewModelScope.launch {
-            loadMidiConfig("default.json")
+            loadMidiConfig("Default.json")
         }
     }
 
@@ -237,7 +243,15 @@ class MidiViewModel(private val context: Context) : ViewModel() {
     }
 
     fun loadMidiConfig(configName: String) {
-        _midiConfig.value = SettingsManager.loadSettings(context, configName)
+        val loadedConfig = SettingsManager.loadSettings(context, configName)
+        _midiConfig.value = loadedConfig
+
+        _selectedSourceDevice.value = _devices.value.find { device ->
+            device.properties.getString(MidiDeviceInfo.PROPERTY_NAME) == loadedConfig.selectedSourceDeviceName
+        }
+        _selectedTargetDevice.value = _devices.value.find { device ->
+            device.properties.getString(MidiDeviceInfo.PROPERTY_NAME) == loadedConfig.selectedTargetDeviceName
+        }
         updateKnobValues()
     }
 
@@ -250,8 +264,13 @@ class MidiViewModel(private val context: Context) : ViewModel() {
         return SettingsManager.getAvailableConfigs(context)
     }
 
-    fun saveMidiConfig() {
-        SettingsManager.saveSettings(context, _midiConfig.value)
+    fun saveMidiConfig(source: MidiDeviceInfo?, target: MidiDeviceInfo?) {
+        val updatedConfig = _midiConfig.value.copy(
+            selectedSourceDeviceName = source?.properties?.getString(MidiDeviceInfo.PROPERTY_NAME),
+            selectedTargetDeviceName = target?.properties?.getString(MidiDeviceInfo.PROPERTY_NAME)
+        )
+        SettingsManager.saveSettings(context, updatedConfig)
+        _midiConfig.value = updatedConfig // Update ViewModel's midiConfig with new device names
     }
 
     fun updateConfigName(name: String) {

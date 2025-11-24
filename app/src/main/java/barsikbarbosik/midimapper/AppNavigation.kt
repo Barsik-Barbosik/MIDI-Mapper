@@ -45,7 +45,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -77,7 +76,9 @@ data class KnobPage(
 
 @Serializable
 data class MidiConfig(
-    var configName: String = "default",
+    var configName: String = "Default",
+    var selectedSourceDeviceName: String? = null,
+    var selectedTargetDeviceName: String? = null,
     var pages: List<KnobPage> = listOf(
         KnobPage(
             name = "User Page 1",
@@ -103,6 +104,8 @@ fun AppNavigation(
     navController: NavHostController
 ) {
     val devices by midiViewModel.devices.collectAsState()
+    val selectedSourceDevice by midiViewModel.selectedSourceDevice.collectAsState()
+    val selectedTargetDevice by midiViewModel.selectedTargetDevice.collectAsState()
     val midiConfig by midiViewModel.midiConfig.collectAsState()
     val learnedCc by midiViewModel.learnedCc.collectAsState()
     val knobValues by midiViewModel.knobValues.collectAsState()
@@ -119,13 +122,15 @@ fun AppNavigation(
         composable("main") {
             MainScreen(
                 devices = devices,
+                selectedSourceDevice = selectedSourceDevice,
+                selectedTargetDevice = selectedTargetDevice,
                 connectionStatus = connectionStatus,
                 onConnect = midiViewModel::connect,
                 onDisconnect = { midiViewModel.disconnect() },
                 navController = navController,
                 midiConfig = midiConfig,
                 onConfigNameChange = { midiViewModel.updateConfigName(it) },
-                onSaveConfig = { midiViewModel.saveMidiConfig() },
+                onSaveConfig = { source, target -> midiViewModel.saveMidiConfig(source, target) },
                 onLoadConfig = { midiViewModel.loadMidiConfig(it) },
                 getAvailableConfigs = { midiViewModel.getAvailableConfigs() },
                 onAddPage = { midiViewModel.addPage() },
@@ -206,13 +211,15 @@ fun AppNavigation(
 @Composable
 fun MainScreen(
     devices: List<MidiDeviceInfo>,
+    selectedSourceDevice: MidiDeviceInfo?,
+    selectedTargetDevice: MidiDeviceInfo?,
     connectionStatus: String,
     onConnect: (MidiDeviceInfo, MidiDeviceInfo) -> Unit,
     onDisconnect: () -> Unit,
     navController: NavController,
     midiConfig: MidiConfig,
     onConfigNameChange: (String) -> Unit,
-    onSaveConfig: () -> Unit,
+    onSaveConfig: (MidiDeviceInfo?, MidiDeviceInfo?) -> Unit,
     onLoadConfig: (String) -> Unit,
     getAvailableConfigs: () -> List<String>,
     onAddPage: () -> Unit,
@@ -222,8 +229,8 @@ fun MainScreen(
     var expandedTarget by remember { mutableStateOf(false) }
     var expandedConfigs by remember { mutableStateOf(false) }
 
-    var selectedSource by remember { mutableStateOf<MidiDeviceInfo?>(null) }
-    var selectedTarget by remember { mutableStateOf<MidiDeviceInfo?>(null) }
+    var selectedSource by remember(selectedSourceDevice) { mutableStateOf(selectedSourceDevice) }
+    var selectedTarget by remember(selectedTargetDevice) { mutableStateOf(selectedTargetDevice) }
 
     val isConnected = connectionStatus != "Not Connected"
 
@@ -254,7 +261,7 @@ fun MainScreen(
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Button(
-                    onClick = onSaveConfig,
+                    onClick = { onSaveConfig(selectedSource, selectedTarget) },
                     modifier = Modifier.weight(1f)
                 ) {
                     Icon(Icons.Filled.Save, contentDescription = "Save")
