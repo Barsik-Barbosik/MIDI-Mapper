@@ -46,6 +46,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -121,12 +122,6 @@ fun AppNavigation(
     val knobValues by midiViewModel.knobValues.collectAsState()
     val connectionStatus by midiViewModel.connectionStatus.collectAsState()
     val receivedMidiMessages by midiViewModel.receivedMidiMessages.collectAsState()
-
-    // The following methods on midiViewModel will need to be updated or created:
-    // - fun addPage()
-    // - fun updateKnobSetting(pageIndex: Int, knobIndex: Int, newSettings: KnobSettings)
-    // - fun startLearning(pageIndex: Int, knobIndex: Int)
-    // The signature of onKnobValueChange can remain the same if using a global index.
 
     NavHost(navController = navController, startDestination = "main", modifier = modifier) {
         composable("main") {
@@ -482,7 +477,7 @@ fun KnobsScreen(
     onKnobValueChange: (Int, Int) -> Unit,
     navController: NavController
 ) {
-    var isConfigurable by remember { mutableStateOf(false) }
+    var isConfigurable by rememberSaveable { mutableStateOf(false) }
 
     Box(
         modifier = Modifier
@@ -504,7 +499,7 @@ fun KnobsScreen(
                     Box(
                         modifier = Modifier.pointerInput(isConfigurable) {
                             detectTapGestures(
-                                onLongPress = {
+                                onPress = {
                                     if (isConfigurable) {
                                         navController.navigate("page/$pageIndex/knob-settings/$index")
                                     }
@@ -512,6 +507,14 @@ fun KnobsScreen(
                             )
                         }
                     ) {
+                        val circleColor = Color(setting.color)
+                        val colorIndex = KnobColors.palette1.indexOf(circleColor)
+                        val arcColor = if (colorIndex != -1) {
+                            KnobColors.palette2.getOrElse(colorIndex) { circleColor }
+                        } else {
+                            circleColor
+                        }
+
                         RotaryKnob(
                             value = knobValues.getOrElse(index) { 0 },
                             onValueChange = { newValue -> onKnobValueChange(index, newValue) },
@@ -519,7 +522,8 @@ fun KnobsScreen(
                             min = setting.minValue,
                             max = setting.maxValue,
                             offset = setting.offset,
-                            color = Color(setting.color)
+                            circleColor = circleColor,
+                            arcColor = arcColor
                         )
                     }
                     Text(setting.name, style = MaterialTheme.typography.bodySmall)
@@ -633,8 +637,7 @@ fun KnobSettingsScreen(
         )
 
         Text("Knob Color", style = MaterialTheme.typography.bodyMedium)
-        val allColors = KnobColors.palette1 + KnobColors.palette2
-        val colorRows = allColors.chunked(8)
+        val colorRows = KnobColors.palette1.chunked(8)
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(4.dp)

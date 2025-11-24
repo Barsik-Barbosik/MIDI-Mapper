@@ -24,7 +24,8 @@ fun RotaryKnob(
     min: Int = 0,
     max: Int = 127,
     offset: Int = 0,
-    color: Color = Color.Gray
+    circleColor: Color = Color.Gray,
+    arcColor: Color = Color.LightGray
 ) {
     val startAngle = 120f
     val sweepAngle = 300f
@@ -67,7 +68,7 @@ fun RotaryKnob(
 
         // Arc showing knob range
         drawArc(
-            color = Color.LightGray,
+            color = arcColor,
             startAngle = startAngle,
             sweepAngle = sweepAngle,
             useCenter = false,
@@ -77,14 +78,14 @@ fun RotaryKnob(
         )
 
         // Knob circle
-        drawCircle(color, radius * 0.85f, center)
+        drawCircle(circleColor, radius * 0.85f, center)
 
         // Indicator line
         val rad = Math.toRadians(angle.toDouble())
         val indicatorLength = radius * 0.8f
         val endX = center.x + cos(rad).toFloat() * indicatorLength
         val endY = center.y + sin(rad).toFloat() * indicatorLength
-        drawLine(Color.LightGray, center, Offset(endX, endY), strokeWidth = 15f)
+        drawLine(Color.White, center, Offset(endX, endY), strokeWidth = 15f)
 
         // Value text
         drawContext.canvas.nativeCanvas.apply {
