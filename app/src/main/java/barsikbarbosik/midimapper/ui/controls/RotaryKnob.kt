@@ -23,7 +23,8 @@ fun RotaryKnob(
     modifier: Modifier = Modifier,
     min: Int = 0,
     max: Int = 127,
-    offset: Int = 0
+    offset: Int = 0,
+    color: Color = Color.Gray
 ) {
     val startAngle = 120f
     val sweepAngle = 300f
@@ -76,7 +77,7 @@ fun RotaryKnob(
         )
 
         // Knob circle
-        drawCircle(Color.Gray, radius * 0.85f, center)
+        drawCircle(color, radius * 0.85f, center)
 
         // Indicator line
         val rad = Math.toRadians(angle.toDouble())
@@ -89,7 +90,7 @@ fun RotaryKnob(
         drawContext.canvas.nativeCanvas.apply {
             val text = (value - offset).toString()
             val textPaint = Paint().apply {
-                color = Color.White.toArgb()
+                this.color = Color.White.toArgb()
                 textAlign = Paint.Align.CENTER
                 textSize = radius * 0.4f
             }

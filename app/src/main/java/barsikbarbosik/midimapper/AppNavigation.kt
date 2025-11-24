@@ -1,6 +1,9 @@
 package barsikbarbosik.midimapper
 
 import android.media.midi.MidiDeviceInfo
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,7 +17,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Done
@@ -45,6 +50,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -56,6 +64,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import barsikbarbosik.midimapper.ui.controls.RotaryKnob
+import barsikbarbosik.midimapper.ui.theme.KnobColors
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -65,7 +74,8 @@ data class KnobSettings(
     var maxValue: Int,
     var sysex: String,
     var offset: Int = 0,
-    var cc: Int? = null
+    var cc: Int? = null,
+    var color: Long = 0xFF808080 // Gray
 )
 
 @Serializable
@@ -89,7 +99,8 @@ data class MidiConfig(
                     127,
                     "",
                     0,
-                    null
+                    null,
+                    color = Color.Gray.toArgb().toLong()
                 )
             }
         )
@@ -186,7 +197,8 @@ fun AppNavigation(
                             127,
                             "",
                             0,
-                            null
+                            null,
+                            color = Color.Gray.toArgb().toLong()
                         )
                     } ?: KnobSettings(
                         "",
@@ -194,7 +206,8 @@ fun AppNavigation(
                         127,
                         "",
                         0,
-                        null
+                        null,
+                        color = Color.Gray.toArgb().toLong()
                     ),
                     onSave = { newSettings ->
                         midiViewModel.updateKnobSetting(pageIndex, knobIndex, newSettings)
@@ -506,7 +519,8 @@ fun KnobsScreen(
                             modifier = Modifier.size(80.dp),
                             min = setting.minValue,
                             max = setting.maxValue,
-                            offset = setting.offset
+                            offset = setting.offset,
+                            color = Color(setting.color)
                         )
                     }
                     Text(setting.name, style = MaterialTheme.typography.bodySmall)
@@ -556,6 +570,7 @@ fun KnobSettingsScreen(
     var offset by remember { mutableStateOf(knobSetting.offset.toString()) }
     var sysex by remember { mutableStateOf(knobSetting.sysex) }
     var cc by remember { mutableStateOf(knobSetting.cc?.toString() ?: "") }
+    var selectedColor by remember { mutableStateOf(Color(knobSetting.color)) }
 
     LaunchedEffect(learnedCc) {
         if (learnedCc != null) {
@@ -618,6 +633,47 @@ fun KnobSettingsScreen(
             modifier = Modifier.fillMaxWidth()
         )
 
+        Text("Knob Color", style = MaterialTheme.typography.bodyMedium)
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(KnobColors.palette1) { color ->
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(color)
+                            .clickable { selectedColor = color }
+                            .border(
+                                width = 2.dp,
+                                color = if (selectedColor == color) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                shape = CircleShape
+                            )
+                    )
+                }
+            }
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(KnobColors.palette2) { color ->
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(color)
+                            .clickable { selectedColor = color }
+                            .border(
+                                width = 2.dp,
+                                color = if (selectedColor == color) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                shape = CircleShape
+                            )
+                    )
+                }
+            }
+        }
+
+
         Button(
             onClick = { onStartLearning(knobIndex) },
             modifier = Modifier.fillMaxWidth()
@@ -641,7 +697,8 @@ fun KnobSettingsScreen(
                         maxValue = maxValue.toIntOrNull() ?: 127,
                         sysex = sysex,
                         offset = offset.toIntOrNull() ?: 0,
-                        cc = cc.toIntOrNull()
+                        cc = cc.toIntOrNull(),
+                        color = selectedColor.toArgb().toLong()
                     )
                     onSave(newSettings)
                     navController.popBackStack()
