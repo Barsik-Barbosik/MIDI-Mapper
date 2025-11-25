@@ -31,11 +31,11 @@ import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -307,7 +307,7 @@ fun MainScreen(
                 }
             }
 
-            Divider()
+            HorizontalDivider()
 
             Text(
                 "MIDI Connection",
@@ -442,7 +442,7 @@ fun MainScreen(
                 }
             }
 
-            Divider()
+            HorizontalDivider()
 
             Text(
                 "Pages",
@@ -589,6 +589,7 @@ fun KnobSettingsScreen(
     ) {
         Text("Configure Knob ${knobIndex + 1}", style = MaterialTheme.typography.titleMedium)
 
+        // General Settings
         TextField(
             value = knobName,
             onValueChange = { knobName = it },
@@ -612,32 +613,16 @@ fun KnobSettingsScreen(
                 label = { Text("Max Value") },
                 modifier = Modifier.weight(1f)
             )
+            TextField(
+                value = offset,
+                onValueChange = { offset = it },
+                label = { Text("Offset") },
+                modifier = Modifier.weight(1f)
+            )
         }
 
-        TextField(
-            value = offset,
-            onValueChange = { offset = it },
-            label = { Text("Offset") },
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        TextField(
-            value = cc,
-            onValueChange = { cc = it },
-            label = { Text("MIDI CC") },
-            modifier = Modifier.fillMaxWidth(),
-            readOnly = true
-        )
-
-        TextField(
-            value = sysex,
-            onValueChange = { sysex = it },
-            label = { Text("SysEx Message") },
-            modifier = Modifier.fillMaxWidth()
-        )
-
         Text("Knob Color", style = MaterialTheme.typography.bodyMedium)
-        val colorRows = KnobColors.palette1.chunked(8)
+        val colorRows = KnobColors.palette2.chunked(8)
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -664,15 +649,41 @@ fun KnobSettingsScreen(
             }
         }
 
+        HorizontalDivider()
 
-        Button(
-            onClick = { onStartLearning(knobIndex) },
-            modifier = Modifier.fillMaxWidth()
+        // Event Listening Settings
+        Text("Source Event Listening", style = MaterialTheme.typography.titleSmall)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Filled.Sensors, "Learn")
-            Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-            Text("Learn")
+            TextField(
+                value = cc,
+                onValueChange = { cc = it },
+                label = { Text("MIDI CC") },
+                modifier = Modifier.weight(1f),
+                readOnly = true
+            )
+            Button(
+                onClick = { onStartLearning(knobIndex) },
+            ) {
+                Icon(Icons.Filled.Sensors, "Learn")
+                Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                Text("Learn")
+            }
         }
+
+        HorizontalDivider()
+
+        // Target Action Settings
+        Text("Target Action", style = MaterialTheme.typography.titleSmall)
+        TextField(
+            value = sysex,
+            onValueChange = { sysex = it },
+            label = { Text("SysEx Message") },
+            modifier = Modifier.fillMaxWidth()
+        )
 
         Spacer(modifier = Modifier.weight(1f))
 
