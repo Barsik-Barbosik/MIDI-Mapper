@@ -662,15 +662,15 @@ fun KnobSettingsScreen(
                 value = cc,
                 onValueChange = { cc = it },
                 label = { Text("MIDI CC") },
-                modifier = Modifier.weight(1f),
-                readOnly = true
+                modifier = Modifier.weight(1f)
             )
             Button(
                 onClick = { onStartLearning(knobIndex) },
+                modifier = Modifier.weight(2f)
             ) {
-                Icon(Icons.Filled.Sensors, "Learn")
+                Icon(Icons.Filled.Sensors, "Map Incoming Event")
                 Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-                Text("Learn")
+                Text("Map Incoming Event")
             }
         }
 
